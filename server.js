@@ -22,8 +22,8 @@ const seed = () => ({
     { id: 4, name: 'Bruno Aluno', email: 'bruno@wm.com', password: bcrypt.hashSync('123456', 10), role: 'aluno', professorId: 2, consulting: false }
   ],
   workouts: [{ id: 1, studentId: 3, professorId: 2, title: 'Treino A — Pernas', exercises: [
-    { id: 1, name: 'Agachamento livre', sets: 4, reps: '10', rest: 90, gif: '/assets/agachamento-animado.svg' },
-    { id: 2, name: 'Afundo alternado', sets: 3, reps: '12 por perna', rest: 60, gif: '/assets/afundo-animado.svg' }
+    { id: 1, name: 'Agachamento livre', sets: 4, reps: '10', rest: 90, gif: '/assets/agachamento-realista.png' },
+    { id: 2, name: 'Afundo alternado', sets: 3, reps: '12 por perna', rest: 60, gif: '/assets/afundo-realista.png' }
   ]}],
   checkins: [], ratings: [],
   consulting: [{ id: 1, studentId: 3, title: 'Plano Consulting WM', diet: 'Café: ovos e frutas\nAlmoço: proteína, arroz e vegetais\nLanche: iogurte e castanhas\nJantar: proteína e vegetais', workoutNotes: 'Priorizar execução controlada e progressão semanal.' }]
@@ -41,7 +41,7 @@ function readDb() {
     admin.name = 'Administrador Master WM'; admin.email = 'master@wm.com'; admin.consulting = true;
     fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
   }
-  const mediaByExercise = { 'Agachamento livre': '/assets/agachamento-animado.svg', 'Afundo alternado': '/assets/afundo-animado.svg' };
+  const mediaByExercise = { 'Agachamento livre': '/assets/agachamento-realista.png', 'Afundo alternado': '/assets/afundo-realista.png' };
   let mediaUpdated = false;
   db.workouts.forEach(workout => workout.exercises.forEach(exercise => {
     if (mediaByExercise[exercise.name] && exercise.gif !== mediaByExercise[exercise.name]) {

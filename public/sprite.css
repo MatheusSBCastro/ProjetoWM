@@ -1,0 +1,18 @@
+.exercise-media > .sprite-frame {
+  position: relative !important;
+  inset: auto !important;
+  display: block;
+  width: 128px;
+  height: 128px;
+  padding: 0 !important;
+  overflow: hidden;
+  border-radius: 18px !important;
+  background: #fff !important;
+}
+
+@media (max-width: 600px) {
+  .exercise-media > .sprite-frame {
+    width: 96px;
+    height: 112px;
+  }
+}
