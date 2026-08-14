@@ -8,6 +8,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const SECRET = process.env.JWT_SECRET || 'troque-esta-chave-em-producao';
 const DB_FILE = path.join(__dirname, 'data', 'database.json');
+const IS_VERCEL = Boolean(process.env.VERCEL);
+let memoryDb = null;
 
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -28,6 +30,10 @@ const seed = () => ({
 });
 
 function readDb() {
+  if (IS_VERCEL) {
+    if (!memoryDb) memoryDb = seed();
+    return memoryDb;
+  }
   if (!fs.existsSync(DB_FILE)) { fs.mkdirSync(path.dirname(DB_FILE), { recursive: true }); fs.writeFileSync(DB_FILE, JSON.stringify(seed(), null, 2)); }
   const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
   const admin = db.users.find(u => u.role === 'admin');
@@ -45,7 +51,10 @@ function readDb() {
   if (mediaUpdated) fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
   return db;
 }
-function writeDb(db) { fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2)); }
+function writeDb(db) {
+  if (IS_VERCEL) { memoryDb = db; return; }
+  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+}
 function safeUser(u) { const { password, ...safe } = u; return safe; }
 function auth(req, res, next) {
   try { req.user = jwt.verify((req.headers.authorization || '').replace('Bearer ', ''), SECRET); next(); }
