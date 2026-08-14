@@ -1,0 +1,4 @@
+/* Regras de estado devem prevalecer sobre os layouts das telas. */
+[hidden] {
+  display: none !important;
+}

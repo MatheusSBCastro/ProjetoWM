@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-labelledby="title">
+  <title id="title">Demonstração de agachamento livre</title>
+  <rect width="320" height="320" rx="32" fill="#171717"/>
+  <path d="M42 265h236" stroke="#c9a55c" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="190" cy="72" r="25" fill="#c9a55c"/>
+  <path d="M177 102l-35 72 57 38m-56-38l-56 40m112-2l44 48m-156-46l-24 46" fill="none" stroke="#f5f3ed" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M115 115h157M126 101v28m134-28v28" stroke="#c9a55c" stroke-width="9" stroke-linecap="round"/>
+  <path d="M177 111l-54 5m54-5l63 4" stroke="#f5f3ed" stroke-width="15" stroke-linecap="round"/>
+  <text x="24" y="42" fill="#fff" font-family="Arial,sans-serif" font-size="17" font-weight="700">AGACHAMENTO</text>
+</svg>

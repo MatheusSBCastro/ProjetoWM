@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#111111"><title>Projeto WM</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="workout.css"><link rel="stylesheet" href="fixes.css"></head>
+<body>
+  <main id="login" class="login-shell"><section class="login-card"><div class="brand">WM</div><p class="eyebrow">PROJETO WM</p><h1>Performance começa com presença.</h1><p class="muted">Entre para acompanhar aulas, treinos e sua evolução.</p><form id="loginForm"><label>E-mail<input id="email" type="email" value="master@wm.com" autocomplete="email" required></label><label>Senha<input id="password" type="password" value="123456" autocomplete="current-password" required></label><button>Entrar</button><p id="loginError" class="error"></p></form><div class="demo"><strong>Acesso completo:</strong> master@wm.com<br>Senha: 123456<br><br>Outros perfis: aluno@wm.com · professor@wm.com</div></section></main>
+  <div id="app" hidden><header><div class="brand small">WM</div><div><strong>Projeto WM</strong><small id="userLabel"></small></div><button class="ghost" onclick="logout()">Sair</button></header><nav id="nav"></nav><main id="content" class="content"></main></div>
+  <script src="app.js"></script>
+</body></html>

@@ -1,0 +1,17 @@
+{
+  "name": "projeto-wm",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gestão de alunos, professores e consultoria WM",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
