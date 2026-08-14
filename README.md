@@ -17,9 +17,16 @@ Acesse `http://localhost:3000`. Contas de demonstração (senha `123456`):
 
 Os dados são criados em `data/database.json`. Em produção, defina `JWT_SECRET`, use HTTPS e substitua o arquivo JSON por PostgreSQL.
 
-## Vercel
+## Deploy seguro na Vercel
 
-O projeto é detectado automaticamente como Express. Configure `JWT_SECRET` nas variáveis de ambiente da Vercel. No deploy de demonstração, os dados rodam em memória e podem ser reiniciados; conecte PostgreSQL antes de usar dados reais.
+Conecte um PostgreSQL ao projeto e configure estas variáveis em **Settings → Environment Variables**:
+
+- `DATABASE_URL`: URL SSL do PostgreSQL.
+- `JWT_SECRET`: segredo aleatório com pelo menos 32 bytes.
+- `ADMIN_EMAIL`: e-mail do primeiro administrador.
+- `ADMIN_PASSWORD`: senha inicial forte, com pelo menos 12 caracteres.
+
+O primeiro acesso cria a estrutura e o ADM inicial. Depois de confirmar o login, remova `ADMIN_PASSWORD` das variáveis da Vercel. O deploy recusa iniciar o banco em memória na Vercel e não contém credenciais públicas de demonstração.
 
 ## Funcionalidades incluídas
 
