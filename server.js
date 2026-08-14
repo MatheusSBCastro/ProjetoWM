@@ -66,6 +66,9 @@ app.post('/api/login', (req, res) => {
   const db = readDb();
   const user = db.users.find(u => u.email.toLowerCase() === String(req.body.email || '').toLowerCase());
   if (!user || !bcrypt.compareSync(req.body.password || '', user.password)) return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
+  const portal = String(req.body.portal || '');
+  if (portal === 'consulting' && !user.consulting) return res.status(403).json({ error: 'Esta conta não possui acesso ao Consulting WM.' });
+  if (portal && portal !== 'consulting' && user.role !== portal && user.role !== 'admin') return res.status(403).json({ error: 'Esta conta não possui acesso a este portal.' });
   res.json({ token: jwt.sign(safeUser(user), SECRET, { expiresIn: '12h' }), user: safeUser(user) });
 });
 
