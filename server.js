@@ -87,6 +87,29 @@ app.get('/api/dashboard', auth, (req, res) => {
   res.json({ workouts: db.workouts.filter(w => w.studentId === req.user.id), checkins: db.checkins.filter(c => c.date === today && c.studentId === req.user.id), ratings: db.ratings.filter(r => r.studentId === req.user.id), consulting: db.consulting.find(c => c.studentId === req.user.id) || null });
 });
 
+app.post('/api/users', auth, only('admin'), (req, res) => {
+  const db = readDb();
+  const name = String(req.body.name || '').trim();
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const password = String(req.body.password || '');
+  const role = String(req.body.role || '');
+  if (!name || !email || !['aluno', 'professor'].includes(role)) return res.status(400).json({ error: 'Preencha nome, e-mail e tipo de cadastro.' });
+  if (password.length < 6) return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
+  if (db.users.some(item => item.email.toLowerCase() === email)) return res.status(409).json({ error: 'Já existe uma conta com este e-mail.' });
+  const item = { id: Math.max(0, ...db.users.map(entry => entry.id)) + 1, name, email, password: bcrypt.hashSync(password, 10), role, consulting: Boolean(req.body.consulting) };
+  if (role === 'aluno') { item.professorId = req.body.professorId ? Number(req.body.professorId) : null; item.avatar = '/assets/avatar-placeholder.svg'; }
+  db.users.push(item); writeDb(db); res.status(201).json(safeUser(item));
+});
+
+app.patch('/api/students/:id/professor', auth, only('admin'), (req, res) => {
+  const db = readDb();
+  const student = db.users.find(item => item.id === Number(req.params.id) && item.role === 'aluno');
+  if (!student) return res.status(404).json({ error: 'Aluno não encontrado.' });
+  const professorId = req.body.professorId ? Number(req.body.professorId) : null;
+  if (professorId && !db.users.some(item => item.id === professorId && item.role === 'professor')) return res.status(400).json({ error: 'Professor inválido.' });
+  student.professorId = professorId; writeDb(db); res.json(safeUser(student));
+});
+
 app.post('/api/checkin', auth, (req, res) => {
   const db = readDb(); const today = new Date().toISOString().slice(0, 10);
   const studentId = req.user.role === 'aluno' ? req.user.id : Number(req.body.studentId);
