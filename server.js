@@ -18,8 +18,8 @@ const seed = () => ({
   users: [
     { id: 1, name: 'Administrador Master WM', email: 'master@wm.com', password: bcrypt.hashSync('123456', 10), role: 'admin', consulting: true },
     { id: 2, name: 'Carlos Professor', email: 'professor@wm.com', password: bcrypt.hashSync('123456', 10), role: 'professor', consulting: false },
-    { id: 3, name: 'Ana Aluna', email: 'aluno@wm.com', password: bcrypt.hashSync('123456', 10), role: 'aluno', professorId: 2, consulting: true },
-    { id: 4, name: 'Bruno Aluno', email: 'bruno@wm.com', password: bcrypt.hashSync('123456', 10), role: 'aluno', professorId: 2, consulting: false }
+    { id: 3, name: 'Ana Aluna', email: 'aluno@wm.com', password: bcrypt.hashSync('123456', 10), role: 'aluno', professorId: 2, consulting: true, avatar: '/assets/ana-aluna.png' },
+    { id: 4, name: 'Bruno Aluno', email: 'bruno@wm.com', password: bcrypt.hashSync('123456', 10), role: 'aluno', professorId: 2, consulting: false, avatar: '/assets/bruno-aluno.png' }
   ],
   workouts: [{ id: 1, studentId: 3, professorId: 2, title: 'Treino A — Pernas', exercises: [
     { id: 1, name: 'Agachamento livre', sets: 4, reps: '10', rest: 90, gif: '/assets/agachamento-realista.png' },
@@ -49,6 +49,10 @@ function readDb() {
     }
   }));
   if (mediaUpdated) fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  const avatars = { 'aluno@wm.com': '/assets/ana-aluna.png', 'bruno@wm.com': '/assets/bruno-aluno.png' };
+  let avatarsUpdated = false;
+  db.users.forEach(item => { if (avatars[item.email] && item.avatar !== avatars[item.email]) { item.avatar = avatars[item.email]; avatarsUpdated = true; } });
+  if (avatarsUpdated && !IS_VERCEL) fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
   return db;
 }
 function writeDb(db) {

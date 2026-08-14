@@ -1,0 +1,2 @@
+.student-profile{display:flex;align-items:center;gap:16px;margin-bottom:20px}.student-profile img{width:78px;height:78px;object-fit:cover;border-radius:50%;border:3px solid #c9a55c}.student-profile h3{margin:0 0 8px}.student-row{display:flex;align-items:center;gap:10px}.student-row img{width:46px;height:46px;object-fit:cover;border-radius:50%;border:2px solid #c9a55c}.student-row .status{margin-left:auto}
+@media(max-width:600px){.student-profile img{width:66px;height:66px}.student-row img{width:42px;height:42px}}
