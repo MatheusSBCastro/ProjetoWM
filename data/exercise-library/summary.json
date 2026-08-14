@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-08-14T23:49:50.421Z",
+  "totalExercises": 873,
+  "totalVariationGroups": 750,
+  "totalImages": 1746,
+  "muscleGroups": {
+    "quadriceps": 148,
+    "shoulders": 127,
+    "abdominals": 93,
+    "chest": 84,
+    "hamstrings": 79,
+    "triceps": 71,
+    "biceps": 53,
+    "lats": 38,
+    "middle-back": 34,
+    "calves": 28,
+    "lower-back": 27,
+    "forearms": 25,
+    "glutes": 22,
+    "traps": 15,
+    "adductors": 13,
+    "neck": 8,
+    "abductors": 8
+  }
+}
