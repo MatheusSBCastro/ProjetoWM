@@ -28,6 +28,10 @@ const seed = () => ({
     { id: 3, name: 'Ana Aluna', email: 'aluno@wm.com', password: bcrypt.hashSync('123456', 10), role: 'aluno', professorId: 2, consulting: true, avatar: '/assets/ana-aluna.png' },
     { id: 4, name: 'Bruno Aluno', email: 'bruno@wm.com', password: bcrypt.hashSync('123456', 10), role: 'aluno', professorId: 2, consulting: false, avatar: '/assets/bruno-aluno.png' }
   ],
+  exercises: [
+    { id: 1, name: 'Agachamento livre', muscle: 'Pernas', equipment: 'Barra', gif: '/assets/agachamento-realista.png' },
+    { id: 2, name: 'Afundo alternado', muscle: 'Pernas', equipment: 'Peso corporal', gif: '/assets/afundo-realista.png' }
+  ],
   workouts: [{ id: 1, studentId: 3, professorId: 2, title: 'Treino A â€” Pernas', exercises: [
     { id: 1, name: 'Agachamento livre', sets: 4, reps: '10', rest: 90, gif: '/assets/agachamento-realista.png' },
     { id: 2, name: 'Afundo alternado', sets: 3, reps: '12 por perna', rest: 60, gif: '/assets/afundo-realista.png' }
@@ -40,7 +44,7 @@ function productionSeed() {
   const email = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
   const password = String(process.env.ADMIN_PASSWORD || '');
   if (!email || password.length < 12) throw new Error('Configure ADMIN_EMAIL e ADMIN_PASSWORD (mÃ­nimo 12 caracteres).');
-  return { users: [{ id: 1, name: 'Administrador WM', email, password: bcrypt.hashSync(password, 12), role: 'admin', consulting: true }], workouts: [], checkins: [], ratings: [], consulting: [] };
+  return { users: [{ id: 1, name: 'Administrador WM', email, password: bcrypt.hashSync(password, 12), role: 'admin', consulting: true }], exercises: [], workouts: [], checkins: [], ratings: [], consulting: [] };
 }
 
 async function readDb() {
@@ -52,11 +56,24 @@ async function readDb() {
       await pool.query('INSERT INTO wm_state (id, data) VALUES (1, $1::jsonb) ON CONFLICT (id) DO NOTHING', [JSON.stringify(initial)]);
       result = await pool.query('SELECT data FROM wm_state WHERE id = 1');
     }
-    return result.rows[0].data;
+    const db = result.rows[0].data;
+    if (!Array.isArray(db.exercises)) {
+      const unique = new Map();
+      db.workouts.forEach(workout => workout.exercises.forEach(exercise => unique.set(exercise.name.toLowerCase(), { id: unique.size + 1, name: exercise.name, muscle: '', equipment: '', gif: exercise.gif || '' })));
+      db.exercises = [...unique.values()];
+      await pool.query('UPDATE wm_state SET data = $1::jsonb, updated_at = NOW() WHERE id = 1', [JSON.stringify(db)]);
+    }
+    return db;
   }
   if (IS_VERCEL) throw new Error('DATABASE_URL nÃ£o configurada. Conecte um PostgreSQL ao projeto.');
   if (!fs.existsSync(DB_FILE)) { fs.mkdirSync(path.dirname(DB_FILE), { recursive: true }); fs.writeFileSync(DB_FILE, JSON.stringify(seed(), null, 2)); }
   const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  if (!Array.isArray(db.exercises)) {
+    const unique = new Map();
+    db.workouts.forEach(workout => workout.exercises.forEach(exercise => unique.set(exercise.name.toLowerCase(), { id: unique.size + 1, name: exercise.name, muscle: '', equipment: '', gif: exercise.gif || '' })));
+    db.exercises = [...unique.values()];
+    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  }
   const admin = db.users.find(u => u.role === 'admin');
   if (admin && admin.email === 'adm@wm.com') {
     admin.name = 'Administrador Master WM'; admin.email = 'master@wm.com'; admin.consulting = true;
@@ -102,7 +119,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
 app.get('/api/me', auth, async (req, res) => res.json(safeUser((await readDb()).users.find(u => u.id === req.user.id))));
 app.get('/api/dashboard', auth, async (req, res) => {
   const db = await readDb(); const today = new Date().toISOString().slice(0, 10);
-  if (req.user.role === 'admin') return res.json({ users: db.users.map(safeUser), workouts: db.workouts, checkins: db.checkins.filter(c => c.date === today), ratings: db.ratings, consulting: db.consulting[0] || null });
+  if (req.user.role === 'admin') return res.json({ users: db.users.map(safeUser), exercises: db.exercises || [], workouts: db.workouts, checkins: db.checkins.filter(c => c.date === today), ratings: db.ratings, consulting: db.consulting[0] || null });
   if (req.user.role === 'professor') {
     const students = db.users.filter(u => u.role === 'aluno' && u.professorId === req.user.id).map(safeUser);
     return res.json({ students, workouts: db.workouts.filter(w => w.professorId === req.user.id), checkins: db.checkins.filter(c => c.date === today), ratings: db.ratings.filter(r => students.some(s => s.id === r.studentId)) });
@@ -131,6 +148,38 @@ app.patch('/api/students/:id/professor', auth, only('admin'), async (req, res) =
   const professorId = req.body.professorId ? Number(req.body.professorId) : null;
   if (professorId && !db.users.some(item => item.id === professorId && item.role === 'professor')) return res.status(400).json({ error: 'Professor invÃ¡lido.' });
   student.professorId = professorId; await writeDb(db); res.json(safeUser(student));
+});
+
+app.post('/api/exercises', auth, only('admin'), async (req, res) => {
+  const db = await readDb(); db.exercises ||= [];
+  const name = String(req.body.name || '').trim();
+  const muscle = String(req.body.muscle || '').trim();
+  const equipment = String(req.body.equipment || '').trim();
+  const gif = String(req.body.gif || '').trim();
+  if (!name || name.length > 100 || muscle.length > 80 || equipment.length > 80 || gif.length > 500) return res.status(400).json({ error: 'Informe um nome válido e revise os limites dos campos.' });
+  if (gif && !/^(https?:\/\/|\/)/i.test(gif)) return res.status(400).json({ error: 'A mídia deve ser uma URL http(s) ou um caminho iniciado por /.' });
+  if (db.exercises.some(item => item.name.toLowerCase() === name.toLowerCase())) return res.status(409).json({ error: 'Este exercício já está cadastrado.' });
+  const item = { id: Math.max(0, ...db.exercises.map(entry => Number(entry.id) || 0)) + 1, name, muscle, equipment, gif: gif || '/assets/avatar-placeholder.svg' };
+  db.exercises.push(item); await writeDb(db); res.status(201).json(item);
+});
+
+app.post('/api/workouts', auth, only('admin'), async (req, res) => {
+  const db = await readDb(); db.exercises ||= [];
+  const title = String(req.body.title || '').trim();
+  const studentId = Number(req.body.studentId);
+  const student = db.users.find(item => item.id === studentId && item.role === 'aluno');
+  const entries = Array.isArray(req.body.exercises) ? req.body.exercises : [];
+  if (!title || title.length > 100 || !student) return res.status(400).json({ error: 'Informe o nome do treino e selecione um aluno válido.' });
+  if (!entries.length || entries.length > 50) return res.status(400).json({ error: 'Adicione de 1 a 50 exercícios ao treino.' });
+  const exercises = [];
+  for (const entry of entries) {
+    const registered = db.exercises.find(item => item.id === Number(entry.exerciseId));
+    const sets = Number(entry.sets), rest = Number(entry.rest); const reps = String(entry.reps || '').trim();
+    if (!registered || !Number.isInteger(sets) || sets < 1 || sets > 20 || !reps || reps.length > 40 || !Number.isInteger(rest) || rest < 0 || rest > 1800) return res.status(400).json({ error: 'Revise exercício, séries, repetições e descanso.' });
+    exercises.push({ id: registered.id, name: registered.name, sets, reps, rest, gif: registered.gif });
+  }
+  const item = { id: Math.max(0, ...db.workouts.map(entry => Number(entry.id) || 0)) + 1, studentId, professorId: student.professorId || null, title, exercises };
+  db.workouts.push(item); await writeDb(db); res.status(201).json(item);
 });
 
 app.post('/api/checkin', auth, async (req, res) => {
