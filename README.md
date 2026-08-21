@@ -22,11 +22,10 @@ Os dados são criados em `data/database.json`. Em produção, defina `JWT_SECRET
 Conecte um PostgreSQL ao projeto e configure estas variáveis em **Settings → Environment Variables**:
 
 - `DATABASE_URL`: URL SSL do PostgreSQL.
-- `JWT_SECRET`: segredo aleatório com pelo menos 32 bytes.
 - `ADMIN_EMAIL`: e-mail do primeiro administrador.
 - `ADMIN_PASSWORD`: senha inicial forte, com pelo menos 12 caracteres.
 
-O primeiro acesso cria a estrutura e o ADM inicial. Depois de confirmar o login, remova `ADMIN_PASSWORD` das variáveis da Vercel. O deploy recusa iniciar o banco em memória na Vercel e não contém credenciais públicas de demonstração.
+O primeiro acesso cria a estrutura e o ADM inicial. Depois de confirmar o login, remova `ADMIN_PASSWORD` das variáveis da Vercel. As sessões são aleatórias e persistidas de forma segura no PostgreSQL; não é necessário configurar `JWT_SECRET`. O deploy recusa iniciar o banco em memória na Vercel e não contém credenciais públicas de demonstração.
 
 ## Funcionalidades incluídas
 

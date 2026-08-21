@@ -1,6 +1,6 @@
 ﻿const express = require('express');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const helmet = require('helmet');
 const { rateLimit } = require('express-rate-limit');
 const { Pool } = require('pg');
@@ -9,7 +9,6 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const SECRET = process.env.JWT_SECRET || (process.env.VERCEL ? null : 'segredo-apenas-local-projeto-wm');
 const DB_FILE = path.join(__dirname, 'data', 'database.json');
 const IS_VERCEL = Boolean(process.env.VERCEL);
 const pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : null;
@@ -36,7 +35,7 @@ const seed = () => ({
     { id: 1, name: 'Agachamento livre', sets: 4, reps: '10', rest: 90, gif: '/assets/agachamento-realista.png' },
     { id: 2, name: 'Afundo alternado', sets: 3, reps: '12 por perna', rest: 60, gif: '/assets/afundo-realista.png' }
   ]}],
-  checkins: [], ratings: [],
+  checkins: [], ratings: [], sessions: [],
   consulting: [{ id: 1, studentId: 3, title: 'Plano Consulting WM', diet: 'CafÃ©: ovos e frutas\nAlmoÃ§o: proteÃ­na, arroz e vegetais\nLanche: iogurte e castanhas\nJantar: proteÃ­na e vegetais', workoutNotes: 'Priorizar execuÃ§Ã£o controlada e progressÃ£o semanal.' }]
 });
 
@@ -44,7 +43,7 @@ function productionSeed() {
   const email = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
   const password = String(process.env.ADMIN_PASSWORD || '');
   if (!email || password.length < 12) throw new Error('Configure ADMIN_EMAIL e ADMIN_PASSWORD (mÃ­nimo 12 caracteres).');
-  return { users: [{ id: 1, name: 'Administrador WM', email, password: bcrypt.hashSync(password, 12), role: 'admin', consulting: true }], exercises: [], workouts: [], checkins: [], ratings: [], consulting: [] };
+  return { users: [{ id: 1, name: 'Administrador WM', email, password: bcrypt.hashSync(password, 12), role: 'admin', consulting: true }], exercises: [], workouts: [], checkins: [], ratings: [], consulting: [], sessions: [] };
 }
 
 async function readDb() {
@@ -98,22 +97,33 @@ async function writeDb(db) {
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 }
 function safeUser(u) { const { password, ...safe } = u; return safe; }
-function auth(req, res, next) {
-  if (!SECRET) return res.status(503).json({ error: 'Servidor sem JWT_SECRET configurado.' });
-  try { req.user = jwt.verify((req.headers.authorization || '').replace('Bearer ', ''), SECRET); next(); }
-  catch { res.status(401).json({ error: 'SessÃ£o invÃ¡lida ou expirada.' }); }
+function tokenHash(token) { return crypto.createHash('sha256').update(token).digest('hex'); }
+async function auth(req, res, next) {
+  try {
+    const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    if (!token) return res.status(401).json({ error: 'Sessão inválida ou expirada.' });
+    const db = await readDb(); const now = Date.now();
+    const session = (db.sessions || []).find(item => item.tokenHash === tokenHash(token) && new Date(item.expiresAt).getTime() > now);
+    const user = session && db.users.find(item => item.id === session.userId);
+    if (!user) return res.status(401).json({ error: 'Sessão inválida ou expirada.' });
+    req.user = { id: user.id, role: user.role }; next();
+  } catch (error) { next(error); }
 }
 function only(...roles) { return (req, res, next) => roles.includes(req.user.role) ? next() : res.status(403).json({ error: 'Acesso nÃ£o autorizado.' }); }
 
 app.post('/api/login', loginLimiter, async (req, res) => {
-  if (!SECRET) return res.status(503).json({ error: 'Servidor sem JWT_SECRET configurado.' });
   const db = await readDb();
   const user = db.users.find(u => u.email.toLowerCase() === String(req.body.email || '').toLowerCase());
   if (!user || !bcrypt.compareSync(req.body.password || '', user.password)) return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
   const portal = String(req.body.portal || '');
   if (portal === 'consulting' && !user.consulting) return res.status(403).json({ error: 'Esta conta nÃ£o possui acesso ao Consulting WM.' });
   if (portal && portal !== 'consulting' && user.role !== portal && user.role !== 'admin') return res.status(403).json({ error: 'Esta conta nÃ£o possui acesso a este portal.' });
-  res.json({ token: jwt.sign({ id: user.id, role: user.role }, SECRET, { expiresIn: '2h' }), user: safeUser(user) });
+  const token = crypto.randomBytes(32).toString('base64url');
+  const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+  db.sessions = (db.sessions || []).filter(item => new Date(item.expiresAt).getTime() > Date.now());
+  db.sessions.push({ tokenHash: tokenHash(token), userId: user.id, expiresAt });
+  await writeDb(db);
+  res.json({ token, user: safeUser(user) });
 });
 
 app.get('/api/me', auth, async (req, res) => res.json(safeUser((await readDb()).users.find(u => u.id === req.user.id))));
