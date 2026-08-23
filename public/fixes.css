@@ -7,6 +7,10 @@
 .link-card .student-profile img { width: 52px; height: 52px; }
 .link-card .student-profile { gap: 12px; }
 button:disabled, select:disabled { cursor: not-allowed; opacity: .6; }
+.students-multiple { width: 100%; padding: 8px; border: 1px solid #d8d5ce; border-radius: 10px; background: #fff; font: inherit; }
+.students-multiple option { padding: 9px; border-radius: 6px; }
+.workout-form-actions { display: flex; gap: 10px; }
+.workout-form-actions button { flex: 1; }
 
 .professor-students { display: grid; gap: 18px; }
 .professor-student-card { padding: 0; overflow: hidden; }
@@ -29,4 +33,5 @@ button:disabled, select:disabled { cursor: not-allowed; opacity: .6; }
   .check-status { justify-content: flex-start; }
   .professor-check button { width: 100%; }
   .student-workouts-title { align-items: flex-start; flex-direction: column; }
+  .workout-form-actions { flex-direction: column; }
 }

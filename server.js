@@ -111,6 +111,7 @@ async function writeDb(db) {
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 }
 function safeUser(u) { const { password, ...safe } = u; return safe; }
+function workoutStudentIds(workout) { return Array.isArray(workout.studentIds) ? workout.studentIds.map(Number) : workout.studentId ? [Number(workout.studentId)] : []; }
 function tokenHash(token) { return crypto.createHash('sha256').update(token).digest('hex'); }
 async function auth(req, res, next) {
   try {
@@ -146,9 +147,9 @@ app.get('/api/dashboard', auth, async (req, res) => {
   if (req.user.role === 'admin') return res.json({ users: db.users.map(safeUser), exercises: db.exercises || [], workouts: db.workouts, checkins: db.checkins.filter(c => c.date === today), ratings: db.ratings, consulting: db.consulting[0] || null });
   if (req.user.role === 'professor') {
     const students = db.users.filter(u => u.role === 'aluno' && u.professorId === req.user.id).map(safeUser);
-    return res.json({ students, workouts: db.workouts.filter(w => w.professorId === req.user.id), checkins: db.checkins.filter(c => c.date === today), ratings: db.ratings.filter(r => students.some(s => s.id === r.studentId)) });
+    return res.json({ students, workouts: db.workouts.filter(w => workoutStudentIds(w).some(id => students.some(s => s.id === id))), checkins: db.checkins.filter(c => c.date === today), ratings: db.ratings.filter(r => students.some(s => s.id === r.studentId)) });
   }
-  res.json({ workouts: db.workouts.filter(w => w.studentId === req.user.id), checkins: db.checkins.filter(c => c.date === today && c.studentId === req.user.id), ratings: db.ratings.filter(r => r.studentId === req.user.id), consulting: db.consulting.find(c => c.studentId === req.user.id) || null });
+  res.json({ workouts: db.workouts.filter(w => workoutStudentIds(w).includes(req.user.id)), checkins: db.checkins.filter(c => c.date === today && c.studentId === req.user.id), ratings: db.ratings.filter(r => r.studentId === req.user.id), consulting: db.consulting.find(c => c.studentId === req.user.id) || null });
 });
 
 app.post('/api/users', auth, only('admin'), async (req, res) => {
@@ -190,10 +191,10 @@ app.post('/api/exercises', auth, only('admin'), async (req, res) => {
 app.post('/api/workouts', auth, only('admin'), async (req, res) => {
   const db = await readDb(); db.exercises ||= [];
   const title = String(req.body.title || '').trim();
-  const studentId = Number(req.body.studentId);
-  const student = db.users.find(item => item.id === studentId && item.role === 'aluno');
+  const studentIds = [...new Set((Array.isArray(req.body.studentIds) ? req.body.studentIds : [req.body.studentId]).map(Number).filter(Boolean))];
+  const students = db.users.filter(item => studentIds.includes(item.id) && item.role === 'aluno');
   const entries = Array.isArray(req.body.exercises) ? req.body.exercises : [];
-  if (!title || title.length > 100 || !student) return res.status(400).json({ error: 'Informe o nome do treino e selecione um aluno válido.' });
+  if (!title || title.length > 100 || !studentIds.length || students.length !== studentIds.length || studentIds.length > 100) return res.status(400).json({ error: 'Informe o nome do treino e selecione alunos válidos.' });
   if (!entries.length || entries.length > 50) return res.status(400).json({ error: 'Adicione de 1 a 50 exercícios ao treino.' });
   const exercises = [];
   for (const entry of entries) {
@@ -202,7 +203,7 @@ app.post('/api/workouts', auth, only('admin'), async (req, res) => {
     if (!registered || !Number.isInteger(sets) || sets < 1 || sets > 20 || !reps || reps.length > 40 || !Number.isInteger(rest) || rest < 0 || rest > 1800) return res.status(400).json({ error: 'Revise exercício, séries, repetições e descanso.' });
     exercises.push({ id: registered.id, name: registered.name, sets, reps, rest, gif: registered.gif });
   }
-  const item = { id: Math.max(0, ...db.workouts.map(entry => Number(entry.id) || 0)) + 1, studentId, professorId: student.professorId || null, title, exercises };
+  const item = { id: Math.max(0, ...db.workouts.map(entry => Number(entry.id) || 0)) + 1, studentIds, title, exercises };
   db.workouts.push(item); await writeDb(db); res.status(201).json(item);
 });
 
@@ -226,9 +227,22 @@ app.post('/api/ratings', auth, only('aluno'), async (req, res) => {
 });
 
 app.put('/api/workouts/:id', auth, only('admin'), async (req, res) => {
-  const db = await readDb(); const i = db.workouts.findIndex(w => w.id === Number(req.params.id));
+  const db = await readDb(); db.exercises ||= []; const i = db.workouts.findIndex(w => w.id === Number(req.params.id));
   if (i < 0) return res.status(404).json({ error: 'Treino nÃ£o encontrado.' });
-  db.workouts[i] = { ...db.workouts[i], title: req.body.title || db.workouts[i].title, exercises: Array.isArray(req.body.exercises) ? req.body.exercises : db.workouts[i].exercises };
+  const title = String(req.body.title || '').trim();
+  const studentIds = [...new Set((Array.isArray(req.body.studentIds) ? req.body.studentIds : []).map(Number).filter(Boolean))];
+  const students = db.users.filter(item => studentIds.includes(item.id) && item.role === 'aluno');
+  const entries = Array.isArray(req.body.exercises) ? req.body.exercises : [];
+  if (!title || title.length > 100 || !studentIds.length || students.length !== studentIds.length || studentIds.length > 100) return res.status(400).json({ error: 'Informe o nome do treino e selecione alunos válidos.' });
+  if (!entries.length || entries.length > 50) return res.status(400).json({ error: 'Adicione de 1 a 50 exercícios ao treino.' });
+  const exercises = [];
+  for (const entry of entries) {
+    const registered = db.exercises.find(item => item.id === Number(entry.exerciseId));
+    const sets = Number(entry.sets), rest = Number(entry.rest), reps = String(entry.reps || '').trim();
+    if (!registered || !Number.isInteger(sets) || sets < 1 || sets > 20 || !reps || reps.length > 40 || !Number.isInteger(rest) || rest < 0 || rest > 1800) return res.status(400).json({ error: 'Revise exercício, séries, repetições e descanso.' });
+    exercises.push({ id: registered.id, name: registered.name, sets, reps, rest, gif: registered.gif });
+  }
+  db.workouts[i] = { id: db.workouts[i].id, title, studentIds, exercises };
   await writeDb(db); res.json(db.workouts[i]);
 });
 
