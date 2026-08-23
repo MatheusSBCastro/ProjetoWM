@@ -11,6 +11,11 @@ button:disabled, select:disabled { cursor: not-allowed; opacity: .6; }
 .students-multiple option { padding: 9px; border-radius: 6px; }
 .workout-form-actions { display: flex; gap: 10px; }
 .workout-form-actions button { flex: 1; }
+.workouts-saved { margin-bottom: 24px; }
+.saved-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 14px; }
+.saved-heading .eyebrow { margin: 0 0 6px; }
+.saved-heading h2 { margin: 0; font: 30px Georgia, serif; }
+.empty-workouts { grid-column: 1 / -1; }
 
 .professor-students { display: grid; gap: 18px; }
 .professor-student-card { padding: 0; overflow: hidden; }
