@@ -31,13 +31,25 @@ const seed = () => ({
     { id: 1, name: 'Agachamento livre', muscle: 'Pernas', equipment: 'Barra', gif: '/assets/agachamento-realista.png' },
     { id: 2, name: 'Afundo alternado', muscle: 'Pernas', equipment: 'Peso corporal', gif: '/assets/afundo-realista.png' }
   ],
-  workouts: [{ id: 1, studentId: 3, professorId: 2, title: 'Treino A â€” Pernas', exercises: [
+  workouts: [{ id: 1, studentId: 3, professorId: 2, title: 'Treino A — Pernas', exercises: [
     { id: 1, name: 'Agachamento livre', sets: 4, reps: '10', rest: 90, gif: '/assets/agachamento-realista.png' },
     { id: 2, name: 'Afundo alternado', sets: 3, reps: '12 por perna', rest: 60, gif: '/assets/afundo-realista.png' }
   ]}],
   checkins: [], ratings: [], sessions: [],
-  consulting: [{ id: 1, studentId: 3, title: 'Plano Consulting WM', diet: 'CafÃ©: ovos e frutas\nAlmoÃ§o: proteÃ­na, arroz e vegetais\nLanche: iogurte e castanhas\nJantar: proteÃ­na e vegetais', workoutNotes: 'Priorizar execuÃ§Ã£o controlada e progressÃ£o semanal.' }]
+  consulting: [{ id: 1, studentId: 3, title: 'Plano Consulting WM', diet: 'Café: ovos e frutas\nAlmoço: proteína, arroz e vegetais\nLanche: iogurte e castanhas\nJantar: proteína e vegetais', workoutNotes: 'Priorizar execução controlada e progressão semanal.' }]
 });
+
+function repairMojibake(value) {
+  const replacements = { 'â€”': '—', 'â€“': '–', 'Â·': '·', 'Ã¡': 'á', 'ÃÁ': 'Á', 'Ã£': 'ã', 'Ãƒ': 'Ã', 'Ã©': 'é', 'Ã‰': 'É', 'Ãª': 'ê', 'Ã­': 'í', 'ÃÍ': 'Í', 'Ã³': 'ó', 'Ã“': 'Ó', 'Ãµ': 'õ', 'Ãº': 'ú', 'Ãš': 'Ú', 'Ã§': 'ç', 'Ã‡': 'Ç' };
+  let changed = false;
+  const visit = item => {
+    if (typeof item === 'string') { let repaired=item; for(const [broken,correct] of Object.entries(replacements))repaired=repaired.split(broken).join(correct); if(repaired!==item)changed=true; return repaired; }
+    if (Array.isArray(item)) { item.forEach((entry,index)=>item[index]=visit(entry)); return item; }
+    if (item && typeof item === 'object') { Object.keys(item).forEach(key=>item[key]=visit(item[key])); return item; }
+    return item;
+  };
+  visit(value); return changed;
+}
 
 function productionSeed() {
   const email = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
@@ -56,17 +68,19 @@ async function readDb() {
       result = await pool.query('SELECT data FROM wm_state WHERE id = 1');
     }
     const db = result.rows[0].data;
+    const textRepaired = repairMojibake(db);
     if (!Array.isArray(db.exercises)) {
       const unique = new Map();
       db.workouts.forEach(workout => workout.exercises.forEach(exercise => unique.set(exercise.name.toLowerCase(), { id: unique.size + 1, name: exercise.name, muscle: '', equipment: '', gif: exercise.gif || '' })));
       db.exercises = [...unique.values()];
       await pool.query('UPDATE wm_state SET data = $1::jsonb, updated_at = NOW() WHERE id = 1', [JSON.stringify(db)]);
-    }
+    } else if (textRepaired) await pool.query('UPDATE wm_state SET data = $1::jsonb, updated_at = NOW() WHERE id = 1', [JSON.stringify(db)]);
     return db;
   }
   if (IS_VERCEL) throw new Error('DATABASE_URL nÃ£o configurada. Conecte um PostgreSQL ao projeto.');
   if (!fs.existsSync(DB_FILE)) { fs.mkdirSync(path.dirname(DB_FILE), { recursive: true }); fs.writeFileSync(DB_FILE, JSON.stringify(seed(), null, 2)); }
   const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  if (repairMojibake(db)) fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
   if (!Array.isArray(db.exercises)) {
     const unique = new Map();
     db.workouts.forEach(workout => workout.exercises.forEach(exercise => unique.set(exercise.name.toLowerCase(), { id: unique.size + 1, name: exercise.name, muscle: '', equipment: '', gif: exercise.gif || '' })));

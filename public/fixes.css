@@ -2,3 +2,31 @@
 [hidden] {
   display: none !important;
 }
+
+/* Componentes compartilhados recebem estilos diferentes em perfis e no ADM. */
+.link-card .student-profile img { width: 52px; height: 52px; }
+.link-card .student-profile { gap: 12px; }
+button:disabled, select:disabled { cursor: not-allowed; opacity: .6; }
+
+.professor-students { display: grid; gap: 18px; }
+.professor-student-card { padding: 0; overflow: hidden; }
+.professor-student-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px; }
+.professor-student-heading .student-profile { margin: 0; }
+.check-status { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.professor-check { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 20px; border-top: 1px solid #eee; background: #faf9f6; }
+.professor-check p { margin: 5px 0 0; font-size: 13px; }
+.professor-check button { flex: 0 0 auto; }
+.student-workouts { padding: 20px; border-top: 1px solid #eee; }
+.student-workouts-title { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 14px; }
+.assigned-workout { padding-top: 14px; border-top: 1px solid #eee; }
+.assigned-workout + .assigned-workout { margin-top: 18px; }
+.assigned-workout h3 { margin-bottom: 12px; }
+.workout-locked { padding: 16px; border: 1px dashed #d5d0c5; border-radius: 12px; background: #faf9f6; }
+.workout-locked p { margin-bottom: 0; }
+
+@media (max-width: 600px) {
+  .professor-student-heading, .professor-check { align-items: stretch; flex-direction: column; }
+  .check-status { justify-content: flex-start; }
+  .professor-check button { width: 100%; }
+  .student-workouts-title { align-items: flex-start; flex-direction: column; }
+}
