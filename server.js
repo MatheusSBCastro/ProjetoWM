@@ -10,6 +10,8 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'data', 'database.json');
+const EXERCISE_CATALOG_FILE = path.join(__dirname, 'data', 'exercise-library', 'selected-500.json');
+const EXERCISE_CATALOG_VERSION = 'wm-500-pt-v3';
 const IS_VERCEL = Boolean(process.env.VERCEL);
 const pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : null;
 
@@ -20,6 +22,30 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'Muitas tentativas. Aguarde 15 minutos e tente novamente.' } });
 
+function bundledExercises() {
+  if (!fs.existsSync(EXERCISE_CATALOG_FILE)) return [
+    { id: 1, name: 'Agachamento livre', muscle: 'Pernas', equipment: 'Barra', gif: '/assets/agachamento-realista.png' },
+    { id: 2, name: 'Afundo alternado', muscle: 'Pernas', equipment: 'Peso corporal', gif: '/assets/afundo-realista.png' }
+  ];
+  const catalog = JSON.parse(fs.readFileSync(EXERCISE_CATALOG_FILE, 'utf8'));
+  if (catalog.length !== 500 || catalog.some(item => !item.validated)) throw new Error('O catálogo WM deve conter 500 exercícios validados.');
+  return catalog;
+}
+
+function syncExerciseCatalog(db) {
+  const catalog = bundledExercises();
+  if (catalog.length !== 500 || db.exerciseCatalogVersion === EXERCISE_CATALOG_VERSION) return false;
+  const catalogNames = new Set(catalog.map(item => item.name.toLowerCase()));
+  const custom = (db.exercises || []).filter(item => !item.sourceId && !catalogNames.has(String(item.name || '').toLowerCase()) && !['agachamento livre', 'afundo alternado'].includes(String(item.name || '').toLowerCase()));
+  db.exercises = [...catalog, ...custom.map((item, index) => ({ ...item, id: 501 + index }))];
+  db.exerciseCatalogVersion = EXERCISE_CATALOG_VERSION;
+  for (const workout of db.workouts || []) for (const exercise of workout.exercises || []) {
+    const registered = db.exercises.find(item => item.name.toLowerCase() === String(exercise.name).toLowerCase());
+    if (registered) Object.assign(exercise, { id: registered.id, name: registered.name, gif: registered.gif, images: registered.images, muscle: registered.muscle, equipment: registered.equipment, instructions: registered.instructions });
+  }
+  return true;
+}
+
 const seed = () => ({
   users: [
     { id: 1, name: 'Administrador Master WM', email: 'master@wm.com', password: bcrypt.hashSync('123456', 10), role: 'admin', consulting: true },
@@ -27,10 +53,7 @@ const seed = () => ({
     { id: 3, name: 'Ana Aluna', email: 'aluno@wm.com', password: bcrypt.hashSync('123456', 10), role: 'aluno', professorId: 2, consulting: true, avatar: '/assets/ana-aluna.png' },
     { id: 4, name: 'Bruno Aluno', email: 'bruno@wm.com', password: bcrypt.hashSync('123456', 10), role: 'aluno', professorId: 2, consulting: false, avatar: '/assets/bruno-aluno.png' }
   ],
-  exercises: [
-    { id: 1, name: 'Agachamento livre', muscle: 'Pernas', equipment: 'Barra', gif: '/assets/agachamento-realista.png' },
-    { id: 2, name: 'Afundo alternado', muscle: 'Pernas', equipment: 'Peso corporal', gif: '/assets/afundo-realista.png' }
-  ],
+  exercises: bundledExercises(), exerciseCatalogVersion: fs.existsSync(EXERCISE_CATALOG_FILE) ? EXERCISE_CATALOG_VERSION : null,
   workouts: [{ id: 1, studentId: 3, professorId: 2, title: 'Treino A — Pernas', exercises: [
     { id: 1, name: 'Agachamento livre', sets: 4, reps: '10', rest: 90, gif: '/assets/agachamento-realista.png' },
     { id: 2, name: 'Afundo alternado', sets: 3, reps: '12 por perna', rest: 60, gif: '/assets/afundo-realista.png' }
@@ -69,18 +92,19 @@ async function readDb() {
     }
     const db = result.rows[0].data;
     const textRepaired = repairMojibake(db);
+    const catalogUpdated = syncExerciseCatalog(db);
     if (!Array.isArray(db.exercises)) {
       const unique = new Map();
       db.workouts.forEach(workout => workout.exercises.forEach(exercise => unique.set(exercise.name.toLowerCase(), { id: unique.size + 1, name: exercise.name, muscle: '', equipment: '', gif: exercise.gif || '' })));
       db.exercises = [...unique.values()];
       await pool.query('UPDATE wm_state SET data = $1::jsonb, updated_at = NOW() WHERE id = 1', [JSON.stringify(db)]);
-    } else if (textRepaired) await pool.query('UPDATE wm_state SET data = $1::jsonb, updated_at = NOW() WHERE id = 1', [JSON.stringify(db)]);
+    } else if (textRepaired || catalogUpdated) await pool.query('UPDATE wm_state SET data = $1::jsonb, updated_at = NOW() WHERE id = 1', [JSON.stringify(db)]);
     return db;
   }
   if (IS_VERCEL) throw new Error('DATABASE_URL nÃ£o configurada. Conecte um PostgreSQL ao projeto.');
   if (!fs.existsSync(DB_FILE)) { fs.mkdirSync(path.dirname(DB_FILE), { recursive: true }); fs.writeFileSync(DB_FILE, JSON.stringify(seed(), null, 2)); }
   const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-  if (repairMojibake(db)) fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  if (repairMojibake(db) || syncExerciseCatalog(db)) fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
   if (!Array.isArray(db.exercises)) {
     const unique = new Map();
     db.workouts.forEach(workout => workout.exercises.forEach(exercise => unique.set(exercise.name.toLowerCase(), { id: unique.size + 1, name: exercise.name, muscle: '', equipment: '', gif: exercise.gif || '' })));
@@ -112,6 +136,9 @@ async function writeDb(db) {
 }
 function safeUser(u) { const { password, ...safe } = u; return safe; }
 function workoutStudentIds(workout) { return Array.isArray(workout.studentIds) ? workout.studentIds.map(Number) : workout.studentId ? [Number(workout.studentId)] : []; }
+function workoutExercise(registered, sets, reps, rest) {
+  return { id: registered.id, name: registered.name, sets, reps, rest, gif: registered.gif, images: registered.images || [registered.gif], muscle: registered.muscle || '', equipment: registered.equipment || '', instructions: registered.instructions || [] };
+}
 function tokenHash(token) { return crypto.createHash('sha256').update(token).digest('hex'); }
 async function auth(req, res, next) {
   try {
@@ -201,7 +228,7 @@ app.post('/api/workouts', auth, only('admin'), async (req, res) => {
     const registered = db.exercises.find(item => item.id === Number(entry.exerciseId));
     const sets = Number(entry.sets), rest = Number(entry.rest); const reps = String(entry.reps || '').trim();
     if (!registered || !Number.isInteger(sets) || sets < 1 || sets > 20 || !reps || reps.length > 40 || !Number.isInteger(rest) || rest < 0 || rest > 1800) return res.status(400).json({ error: 'Revise exercício, séries, repetições e descanso.' });
-    exercises.push({ id: registered.id, name: registered.name, sets, reps, rest, gif: registered.gif });
+    exercises.push(workoutExercise(registered, sets, reps, rest));
   }
   const item = { id: Math.max(0, ...db.workouts.map(entry => Number(entry.id) || 0)) + 1, studentIds, title, exercises };
   db.workouts.push(item); await writeDb(db); res.status(201).json(item);
@@ -226,6 +253,18 @@ app.post('/api/ratings', auth, only('aluno'), async (req, res) => {
   db.ratings.push(item); await writeDb(db); res.status(201).json(item);
 });
 
+app.patch('/api/exercises/:id/name', auth, only('admin'), async (req, res) => {
+  const db = await readDb();
+  const exercise = db.exercises.find(item => item.id === Number(req.params.id));
+  if (!exercise) return res.status(404).json({ error: 'Exercício não encontrado.' });
+  const name = String(req.body.name || '').trim();
+  if (!name || name.length > 100) return res.status(400).json({ error: 'Informe um nome válido de até 100 caracteres.' });
+  if (db.exercises.some(item => item.id !== exercise.id && item.name.toLowerCase() === name.toLowerCase())) return res.status(409).json({ error: 'Já existe um exercício com este nome.' });
+  exercise.name = name;
+  for (const workout of db.workouts || []) for (const entry of workout.exercises || []) if (entry.id === exercise.id) entry.name = name;
+  await writeDb(db); res.json(exercise);
+});
+
 app.put('/api/workouts/:id', auth, only('admin'), async (req, res) => {
   const db = await readDb(); db.exercises ||= []; const i = db.workouts.findIndex(w => w.id === Number(req.params.id));
   if (i < 0) return res.status(404).json({ error: 'Treino nÃ£o encontrado.' });
@@ -240,7 +279,7 @@ app.put('/api/workouts/:id', auth, only('admin'), async (req, res) => {
     const registered = db.exercises.find(item => item.id === Number(entry.exerciseId));
     const sets = Number(entry.sets), rest = Number(entry.rest), reps = String(entry.reps || '').trim();
     if (!registered || !Number.isInteger(sets) || sets < 1 || sets > 20 || !reps || reps.length > 40 || !Number.isInteger(rest) || rest < 0 || rest > 1800) return res.status(400).json({ error: 'Revise exercício, séries, repetições e descanso.' });
-    exercises.push({ id: registered.id, name: registered.name, sets, reps, rest, gif: registered.gif });
+    exercises.push(workoutExercise(registered, sets, reps, rest));
   }
   db.workouts[i] = { id: db.workouts[i].id, title, studentIds, exercises };
   await writeDb(db); res.json(db.workouts[i]);
