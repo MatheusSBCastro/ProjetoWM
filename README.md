@@ -1,4 +1,4 @@
-# Projeto WM
+# Gym Moviment
 
 MVP web responsivo para gestão de alunos, professores, treinos e consultoria premium.
 

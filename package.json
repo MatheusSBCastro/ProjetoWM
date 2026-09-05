@@ -1,8 +1,8 @@
 {
-  "name": "projeto-wm",
+  "name": "gym-moviment",
   "version": "1.0.0",
   "private": true,
-  "description": "Gestão de alunos, professores e consultoria WM",
+  "description": "Gestão de alunos, professores e consultoria Gym Moviment",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

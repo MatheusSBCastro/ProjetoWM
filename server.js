@@ -74,6 +74,13 @@ function repairMojibake(value) {
   visit(value); return changed;
 }
 
+function repairBranding(db) {
+  let changed = false;
+  for (const user of db.users || []) if (user.role === 'admin' && /WM$/.test(user.name)) { user.name = user.name.replace(/WM$/, 'Gym Moviment'); changed = true; }
+  for (const plan of db.consulting || []) if (plan.title === 'Plano Consulting WM') { plan.title = 'Plano Consulting Gym Moviment'; changed = true; }
+  return changed;
+}
+
 function productionSeed() {
   const email = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
   const password = String(process.env.ADMIN_PASSWORD || '');
@@ -92,19 +99,21 @@ async function readDb() {
     }
     const db = result.rows[0].data;
     const textRepaired = repairMojibake(db);
+    const brandingRepaired = repairBranding(db);
     const catalogUpdated = syncExerciseCatalog(db);
     if (!Array.isArray(db.exercises)) {
       const unique = new Map();
       db.workouts.forEach(workout => workout.exercises.forEach(exercise => unique.set(exercise.name.toLowerCase(), { id: unique.size + 1, name: exercise.name, muscle: '', equipment: '', gif: exercise.gif || '' })));
       db.exercises = [...unique.values()];
       await pool.query('UPDATE wm_state SET data = $1::jsonb, updated_at = NOW() WHERE id = 1', [JSON.stringify(db)]);
-    } else if (textRepaired || catalogUpdated) await pool.query('UPDATE wm_state SET data = $1::jsonb, updated_at = NOW() WHERE id = 1', [JSON.stringify(db)]);
+    } else if (textRepaired || brandingRepaired || catalogUpdated) await pool.query('UPDATE wm_state SET data = $1::jsonb, updated_at = NOW() WHERE id = 1', [JSON.stringify(db)]);
     return db;
   }
   if (IS_VERCEL) throw new Error('DATABASE_URL nÃ£o configurada. Conecte um PostgreSQL ao projeto.');
   if (!fs.existsSync(DB_FILE)) { fs.mkdirSync(path.dirname(DB_FILE), { recursive: true }); fs.writeFileSync(DB_FILE, JSON.stringify(seed(), null, 2)); }
   const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-  if (repairMojibake(db) || syncExerciseCatalog(db)) fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  const localTextRepaired = repairMojibake(db), localBrandingRepaired = repairBranding(db), localCatalogUpdated = syncExerciseCatalog(db);
+  if (localTextRepaired || localBrandingRepaired || localCatalogUpdated) fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
   if (!Array.isArray(db.exercises)) {
     const unique = new Map();
     db.workouts.forEach(workout => workout.exercises.forEach(exercise => unique.set(exercise.name.toLowerCase(), { id: unique.size + 1, name: exercise.name, muscle: '', equipment: '', gif: exercise.gif || '' })));
@@ -288,5 +297,5 @@ app.put('/api/workouts/:id', auth, only('admin'), async (req, res) => {
 app.use('/api', (req, res) => res.status(404).json({ error: 'Rota não encontrada.' }));
 app.use((error, req, res, next) => { console.error(error.message); res.status(500).json({ error: IS_VERCEL ? 'Erro interno do servidor.' : error.message }); });
 
-app.listen(PORT, () => console.log(`Projeto WM em http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`Gym Moviment em http://localhost:${PORT}`));
 
