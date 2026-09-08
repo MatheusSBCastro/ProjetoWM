@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
+const ADMIN_KEYWORD = 'matheusemiguel';
 const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'data', 'database.json');
 const EXERCISE_CATALOG_FILE = path.join(__dirname, 'data', 'exercise-library', 'selected-500.json');
@@ -16,7 +17,7 @@ const IS_VERCEL = Boolean(process.env.VERCEL);
 const pool = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : null;
 
 app.disable('x-powered-by');
-app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'same-origin' } }));
+app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'same-origin' }, crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' } }));
 app.use(express.json({ limit: '100kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
@@ -82,10 +83,7 @@ function repairBranding(db) {
 }
 
 function productionSeed() {
-  const email = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
-  const password = String(process.env.ADMIN_PASSWORD || '');
-  if (!email || password.length < 12) throw new Error('Configure ADMIN_EMAIL e ADMIN_PASSWORD (mÃ­nimo 12 caracteres).');
-  return { users: [{ id: 1, name: 'Administrador WM', email, password: bcrypt.hashSync(password, 12), role: 'admin', consulting: true }], exercises: [], workouts: [], checkins: [], ratings: [], consulting: [], sessions: [] };
+  return { users: [{ id: 1, name: 'Administrador Gym Moviment', role: 'admin', consulting: true }], exercises: [], workouts: [], checkins: [], ratings: [], consulting: [], sessions: [] };
 }
 
 async function readDb() {
@@ -157,24 +155,31 @@ async function auth(req, res, next) {
     const session = (db.sessions || []).find(item => item.tokenHash === tokenHash(token) && new Date(item.expiresAt).getTime() > now);
     const user = session && db.users.find(item => item.id === session.userId);
     if (!user) return res.status(401).json({ error: 'Sessão inválida ou expirada.' });
+    if (session.status === 'pending' || session.status === 'denied' || (user.role === 'professor' && session.status !== 'approved')) return res.status(403).json({ error: 'O acesso do professor depende da aprovação do ADM.' });
     req.user = { id: user.id, role: user.role }; next();
   } catch (error) { next(error); }
 }
 function only(...roles) { return (req, res, next) => roles.includes(req.user.role) ? next() : res.status(403).json({ error: 'Acesso nÃ£o autorizado.' }); }
 
+const access = require('./auth-access')(app, { readDb, writeDb, safeUser, auth, only, loginLimiter });
+
 app.post('/api/login', loginLimiter, async (req, res) => {
   const db = await readDb();
-  const user = db.users.find(u => u.email.toLowerCase() === String(req.body.email || '').toLowerCase());
-  if (!user || !bcrypt.compareSync(req.body.password || '', user.password)) return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
   const portal = String(req.body.portal || '');
+  let user;
+  if (portal === 'admin') {
+    const keyword = typeof req.body.keyword === 'string' ? req.body.keyword : '';
+    if (!crypto.timingSafeEqual(Buffer.from(tokenHash(keyword)), Buffer.from(tokenHash(ADMIN_KEYWORD)))) return res.status(401).json({ error: 'Palavra-chave incorreta.' });
+    user = db.users.find(u => u.role === 'admin');
+  } else {
+    const login = String(req.body.login || req.body.email || '').trim().toLowerCase();
+    user = db.users.find(u => u.role !== 'admin' && String(u.login || u.email || '').toLowerCase() === login);
+    if (!user || typeof req.body.password !== 'string' || !bcrypt.compareSync(req.body.password, user.password)) return res.status(401).json({ error: 'Login ou senha incorretos.' });
+  }
+  if (!user) return res.status(401).json({ error: 'Acesso indisponível.' });
   if (portal === 'consulting' && !user.consulting) return res.status(403).json({ error: 'Esta conta nÃ£o possui acesso ao Consulting WM.' });
   if (portal && portal !== 'consulting' && user.role !== portal && user.role !== 'admin') return res.status(403).json({ error: 'Esta conta nÃ£o possui acesso a este portal.' });
-  const token = crypto.randomBytes(32).toString('base64url');
-  const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
-  db.sessions = (db.sessions || []).filter(item => new Date(item.expiresAt).getTime() > Date.now());
-  db.sessions.push({ tokenHash: tokenHash(token), userId: user.id, expiresAt });
-  await writeDb(db);
-  res.json({ token, user: safeUser(user) });
+  return access.start(db, user, res, 'password');
 });
 
 app.get('/api/me', auth, async (req, res) => res.json(safeUser((await readDb()).users.find(u => u.id === req.user.id))));
@@ -192,12 +197,16 @@ app.post('/api/users', auth, only('admin'), async (req, res) => {
   const db = await readDb();
   const name = String(req.body.name || '').trim();
   const email = String(req.body.email || '').trim().toLowerCase();
-  const password = String(req.body.password || '').slice(0, 128);
+  const login = String(req.body.login || '').trim().toLowerCase();
+  const password = String(req.body.password || '');
+  if (!login || login.length > 100 || /\s/.test(login)) return res.status(400).json({ error: 'Defina um login de até 100 caracteres, sem espaços.' });
+  if (Buffer.byteLength(password, 'utf8') > 72) return res.status(400).json({ error: 'A senha deve ter no máximo 72 bytes.' });
+  if (db.users.some(item => String(item.login || item.email || '').toLowerCase() === login)) return res.status(409).json({ error: 'Este login já está em uso.' });
   const role = String(req.body.role || '');
   if (!name || name.length > 100 || !email || email.length > 254 || !/^\S+@\S+\.\S+$/.test(email) || !['aluno', 'professor'].includes(role)) return res.status(400).json({ error: 'Preencha nome, e-mail válido e tipo de cadastro.' });
   if (password.length < 6) return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
-  if (db.users.some(item => item.email.toLowerCase() === email)) return res.status(409).json({ error: 'JÃ¡ existe uma conta com este e-mail.' });
-  const item = { id: Math.max(0, ...db.users.map(entry => entry.id)) + 1, name, email, password: bcrypt.hashSync(password, 12), role, consulting: Boolean(req.body.consulting) };
+  if (db.users.some(item => String(item.email || '').toLowerCase() === email)) return res.status(409).json({ error: 'JÃ¡ existe uma conta com este e-mail.' });
+  const item = { id: Math.max(0, ...db.users.map(entry => entry.id)) + 1, name, email, login, password: bcrypt.hashSync(password, 12), role, consulting: Boolean(req.body.consulting) };
   if (role === 'aluno') { item.professorId = req.body.professorId ? Number(req.body.professorId) : null; item.avatar = '/assets/avatar-placeholder.svg'; }
   db.users.push(item); await writeDb(db); res.status(201).json(safeUser(item));
 });
@@ -297,5 +306,7 @@ app.put('/api/workouts/:id', auth, only('admin'), async (req, res) => {
 app.use('/api', (req, res) => res.status(404).json({ error: 'Rota não encontrada.' }));
 app.use((error, req, res, next) => { console.error(error.message); res.status(500).json({ error: IS_VERCEL ? 'Erro interno do servidor.' : error.message }); });
 
-app.listen(PORT, () => console.log(`Gym Moviment em http://localhost:${PORT}`));
+if (require.main === module) app.listen(PORT, () => console.log(`Gym Moviment em http://localhost:${PORT}`));
 
+
+module.exports = app;
