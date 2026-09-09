@@ -99,14 +99,48 @@ test('Google vincula aluno por identidade e professor aguarda ADM', async t => {
   assert.equal((await api('/api/login/google', googleLogin('professor'))).status, 202);
 });
 
-test('Google rejeita identidade inválida, não cadastrada e portal incorreto', async t => {
+test('Google rejeita identidade inválida e portal incorreto', async t => {
   const { api } = await withApi(t);
   assert.equal((await api('/api/login/google', { portal: 'aluno', credential: 'invalid' })).status, 401);
   assert.equal((await api('/api/login/google', googleLogin('aluno', { email_verified: false }))).status, 401);
-  assert.equal((await api('/api/login/google', googleLogin('aluno', { email: 'desconhecido@gmail.com' }))).status, 403);
   assert.equal((await api('/api/login/google', { ...googleLogin('aluno'), portal: 'professor' })).status, 403);
   assert.equal((await api('/api/login/google', { ...googleLogin('aluno'), portal: 'admin' })).status, 400);
   assert.equal((await api('/api/login/google', googleLogin('aluno'), undefined, { Origin: 'https://outro.example' })).status, 403);
+});
+
+test('primeiro acesso Google cria aluno, libera painel e reutiliza o perfil', async t => {
+  const { api, getDb } = await withApi(t);
+  const body = googleLogin('aluno', { sub: 'novo-aluno', email: 'novo@gmail.com', name: 'Nova Aluna' });
+  const result = await api('/api/login/google', body);
+  assert.equal(result.status, 200);
+  assert.equal(result.data.user.name, 'Nova Aluna');
+  assert.equal(result.data.user.role, 'aluno');
+  assert.equal(result.data.user.consulting, false);
+  assert.equal(result.data.user.professorId, null);
+  assert.equal((await api('/api/dashboard', undefined, result.data.token)).status, 200);
+  assert.equal((await api('/api/login', { login: 'novo@gmail.com', password: 'qualquer', portal: 'aluno' })).status, 401);
+  const again = await api('/api/login/google', body);
+  assert.equal(again.data.user.id, result.data.user.id);
+  assert.equal(getDb().users.filter(item => item.googleSub === 'novo-aluno').length, 1);
+  assert.equal((await api('/api/login/google', { ...body, portal: 'professor' })).status, 403);
+});
+
+test('primeiro acesso Google cria professor e notifica ADM sem liberar APIs', async t => {
+  const { api, getDb } = await withApi(t);
+  const body = googleLogin('professor', { sub: 'novo-professor', email: 'novo-professor@gmail.com', name: 'Novo Professor' });
+  const result = await api('/api/login/google', body);
+  assert.equal(result.status, 202);
+  assert.equal(result.data.status, 'pending');
+  assert.equal((await api('/api/dashboard', undefined, result.data.token)).status, 403);
+  const requests = (await api('/api/access-requests', undefined, 'admin-token')).data;
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].name, 'Novo Professor');
+  assert.equal(requests[0].email, 'novo-professor@gmail.com');
+  assert.equal((await api('/api/access-status', undefined, result.data.token)).data.status, 'pending');
+  await api(`/api/access-requests/${requests[0].id}`, { decision: 'approved' }, 'admin-token');
+  assert.equal((await api('/api/dashboard', undefined, result.data.token)).status, 200);
+  assert.equal((await api('/api/login/google', body)).status, 202);
+  assert.equal(getDb().users.filter(item => item.googleSub === 'novo-professor').length, 1);
 });
 
 test('Google impede troca de identidade e vínculo automático de e-mail externo', async t => {

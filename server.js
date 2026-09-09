@@ -174,7 +174,7 @@ app.post('/api/login', loginLimiter, async (req, res) => {
   } else {
     const login = String(req.body.login || req.body.email || '').trim().toLowerCase();
     user = db.users.find(u => u.role !== 'admin' && String(u.login || u.email || '').toLowerCase() === login);
-    if (!user || typeof req.body.password !== 'string' || !bcrypt.compareSync(req.body.password, user.password)) return res.status(401).json({ error: 'Login ou senha incorretos.' });
+    if (!user || typeof user.password !== 'string' || typeof req.body.password !== 'string' || !bcrypt.compareSync(req.body.password, user.password)) return res.status(401).json({ error: 'Login ou senha incorretos.' });
   }
   if (!user) return res.status(401).json({ error: 'Acesso indisponível.' });
   if (portal === 'consulting' && !user.consulting) return res.status(403).json({ error: 'Esta conta nÃ£o possui acesso ao Consulting WM.' });

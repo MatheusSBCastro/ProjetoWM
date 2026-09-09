@@ -47,7 +47,7 @@ async function pollAccess() {
       await completeLogin({ ...result, token: pending.token });
       return;
     }
-    $('#pendingMessage').textContent = 'Aguardando aprovação do ADM. Esta tela será atualizada automaticamente.';
+    $('#pendingMessage').textContent = 'Solicitação enviada ao ADM. Aguardando aprovação para liberar seu acesso. Esta tela será atualizada automaticamente.';
   } catch {
     if (pendingAccess !== pending) return;
     $('#pendingMessage').textContent = 'Sem conexão no momento. Tentando consultar a aprovação novamente…';
@@ -143,7 +143,9 @@ async function renderGoogleLogin() {
       } catch (error) { $('#loginError').textContent = error.message; }
     } });
     google.accounts.id.renderButton($('#googleButton'), { theme: 'outline', size: 'large', text: 'signin_with', locale: 'pt-BR' });
-    $('#googleMessage').textContent = 'Use o e-mail Google informado no seu cadastro pelo ADM.';
+    $('#googleMessage').textContent = portal === 'professor'
+      ? 'Entre ou crie seu perfil com Google. Sua solicitação será enviada para aprovação do ADM.'
+      : 'Entre com Google para acessar ou criar seu perfil de aluno automaticamente.';
   } catch {
     $('#googleMessage').textContent = 'Não foi possível carregar o Google. Use login e senha ou tente novamente.';
   }

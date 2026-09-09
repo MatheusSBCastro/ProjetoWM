@@ -45,7 +45,18 @@ module.exports = function installAccess(app, { readDb, writeDb, safeUser, auth, 
       user = db.users.find(item => String(item.email || '').toLowerCase() === email && !item.googleSub);
       if (user && !email.endsWith('@gmail.com') && !identity.hd) return res.status(403).json({ error: 'Para este e-mail, use o login e a senha definidos pelo ADM.' });
     }
-    if (!user || user.role !== portal) return res.status(403).json({ error: 'Esta conta não está cadastrada neste portal. Fale com o ADM.' });
+    if (!user) {
+      if (db.users.some(item => String(item.email || '').toLowerCase() === email)) return res.status(403).json({ error: 'Este e-mail já está vinculado a outra conta Google.' });
+      user = {
+        id: Math.max(0, ...db.users.map(item => item.id)) + 1,
+        name: String(identity.name || email.split('@')[0]).trim().slice(0, 100) || 'Novo usuário',
+        email, googleSub: identity.sub, role: portal, consulting: false,
+        createdAt: new Date().toISOString()
+      };
+      if (portal === 'aluno') Object.assign(user, { professorId: null, avatar: '/assets/avatar-placeholder.svg' });
+      db.users.push(user);
+    }
+    if (user.role !== portal) return res.status(403).json({ error: 'Esta conta pertence a outro perfil. Entre pelo portal correspondente ou fale com o ADM.' });
     user.googleSub = identity.sub;
     return start(db, user, res, 'google');
   });
