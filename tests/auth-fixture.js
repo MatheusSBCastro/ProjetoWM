@@ -11,6 +11,7 @@ const digest = token => crypto.createHash('sha256').update(token).digest('hex');
 const password = bcrypt.hashSync('teste123', 4);
 
 function fixture(options = {}) {
+  const env = { ADMIN_KEYWORD: 'admin-test-key-123456', ...options.env };
   let state = JSON.stringify({
     users: [
       { id: 1, name: 'ADM', role: 'admin' },
@@ -18,7 +19,7 @@ function fixture(options = {}) {
       { id: 3, name: 'Aluno Teste', role: 'aluno', login: 'aluno', email: 'aluno@gmail.com', password },
     ],
     exercises: [], exerciseCatalogVersion: 'wm-500-pt-v3', workouts: [], checkins: [], ratings: [], consulting: [],
-    sessions: [{ tokenHash: digest('admin-token'), userId: 1, expiresAt: new Date(Date.now() + 3600000).toISOString() }]
+    sessions: [{ tokenHash: digest('admin-token'), userId: 1, adminKeyHash: digest(env.ADMIN_KEYWORD), expiresAt: new Date(Date.now() + 3600000).toISOString() }]
   });
   const fakeFs = { ...fs,
     readFileSync(file, ...args) { return String(file).endsWith('database.json') ? state : fs.readFileSync(file, ...args); },
@@ -31,7 +32,7 @@ function fixture(options = {}) {
         if (credential === 'invalid') throw new Error('Invalid token');
         return JSON.parse(credential);
       } }) : require(name),
-    process: { env: {} }, __dirname: root, console, Buffer, module: { exports: {} }
+    process: { env }, __dirname: root, console, Buffer, module: { exports: {} }
   };
   vm.runInNewContext(fs.readFileSync(path.join(root, 'server.js'), 'utf8'), context);
   const app = context.module.exports;

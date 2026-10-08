@@ -6,8 +6,13 @@ const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
 
+const ENV_FILE = path.join(__dirname, '.env');
+if (!process.env.VERCEL && typeof process.loadEnvFile === 'function' && fs.existsSync(ENV_FILE)) process.loadEnvFile(ENV_FILE);
+
 const app = express();
-const ADMIN_KEYWORD = 'matheusemiguel';
+const ADMIN_KEYWORD = process.env.ADMIN_KEYWORD || '';
+const ADMIN_KEY_CONFIGURED = Buffer.byteLength(ADMIN_KEYWORD, 'utf8') >= 16 && Buffer.byteLength(ADMIN_KEYWORD, 'utf8') <= 256;
+const ADMIN_KEY_HASH = ADMIN_KEY_CONFIGURED ? tokenHash(ADMIN_KEYWORD) : null;
 const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'data', 'database.json');
 const EXERCISE_CATALOG_FILE = path.join(__dirname, 'data', 'exercise-library', 'selected-500.json');
@@ -141,6 +146,9 @@ async function writeDb(db) {
 }
 function safeUser(u) { const { password, ...safe } = u; return safe; }
 function workoutStudentIds(workout) { return Array.isArray(workout.studentIds) ? workout.studentIds.map(Number) : workout.studentId ? [Number(workout.studentId)] : []; }
+function scopedWorkout(workout, studentIds, released = true) {
+  return { id: workout.id, title: workout.title, studentIds, exercises: released ? workout.exercises : [] };
+}
 function workoutExercise(registered, sets, reps, rest) {
   return { id: registered.id, name: registered.name, sets, reps, rest, gif: registered.gif, images: registered.images || [registered.gif], muscle: registered.muscle || '', equipment: registered.equipment || '', instructions: registered.instructions || [] };
 }
@@ -153,26 +161,29 @@ async function auth(req, res, next) {
     const session = (db.sessions || []).find(item => item.tokenHash === tokenHash(token) && new Date(item.expiresAt).getTime() > now);
     const user = session && db.users.find(item => item.id === session.userId);
     if (!user) return res.status(401).json({ error: 'Sessão inválida ou expirada.' });
+    if (user.role === 'admin' && (!ADMIN_KEY_HASH || session.adminKeyHash !== ADMIN_KEY_HASH)) return res.status(401).json({ error: 'Entre novamente com a chave atual do ADM.' });
     if (session.status === 'pending' || session.status === 'denied' || (user.role === 'professor' && session.status !== 'approved')) return res.status(403).json({ error: 'O acesso do professor depende da aprovação do ADM.' });
     req.user = { id: user.id, role: user.role }; next();
   } catch (error) { next(error); }
 }
 function only(...roles) { return (req, res, next) => roles.includes(req.user.role) ? next() : res.status(403).json({ error: 'Acesso nÃ£o autorizado.' }); }
 
-const access = require('./auth-access')(app, { readDb, writeDb, safeUser, auth, only });
+const access = require('./auth-access')(app, { readDb, writeDb, safeUser, auth, only, adminKeyHash: ADMIN_KEY_HASH });
 
 app.post('/api/login', async (req, res) => {
   const db = await readDb();
   const portal = String(req.body.portal || '');
   let user;
   if (portal === 'admin') {
+    if (!ADMIN_KEY_CONFIGURED) return res.status(503).json({ error: 'O acesso ADM precisa de uma chave segura configurada no servidor.' });
     const keyword = typeof req.body.keyword === 'string' ? req.body.keyword : '';
     if (!crypto.timingSafeEqual(Buffer.from(tokenHash(keyword)), Buffer.from(tokenHash(ADMIN_KEYWORD)))) return res.status(401).json({ error: 'Palavra-chave incorreta.' });
     user = db.users.find(u => u.role === 'admin');
   } else {
+    if (typeof req.body.password !== 'string' || Buffer.byteLength(req.body.password, 'utf8') > 72) return res.status(400).json({ error: 'Informe uma senha de até 72 bytes.' });
     const login = String(req.body.login || req.body.email || '').trim().toLowerCase();
     user = db.users.find(u => u.role !== 'admin' && String(u.login || u.email || '').toLowerCase() === login);
-    if (!user || typeof user.password !== 'string' || typeof req.body.password !== 'string' || !bcrypt.compareSync(req.body.password, user.password)) return res.status(401).json({ error: 'Login ou senha incorretos.' });
+    if (!user || typeof user.password !== 'string' || !bcrypt.compareSync(req.body.password, user.password)) return res.status(401).json({ error: 'Login ou senha incorretos.' });
   }
   if (!user) return res.status(401).json({ error: 'Acesso indisponível.' });
   if (portal === 'consulting' && !user.consulting) return res.status(403).json({ error: 'Esta conta nÃ£o possui acesso ao Consulting WM.' });
@@ -186,9 +197,19 @@ app.get('/api/dashboard', auth, async (req, res) => {
   if (req.user.role === 'admin') return res.json({ users: db.users.map(safeUser), exercises: db.exercises || [], workouts: db.workouts, checkins: db.checkins.filter(c => c.date === today), ratings: db.ratings, consulting: db.consulting[0] || null });
   if (req.user.role === 'professor') {
     const students = db.users.filter(u => u.role === 'aluno' && u.professorId === req.user.id).map(safeUser);
-    return res.json({ students, workouts: db.workouts.filter(w => workoutStudentIds(w).some(id => students.some(s => s.id === id))), checkins: db.checkins.filter(c => c.date === today), ratings: db.ratings.filter(r => students.some(s => s.id === r.studentId)) });
+    const studentIds = new Set(students.map(s => s.id));
+    const checkins = db.checkins.filter(c => c.date === today && studentIds.has(c.studentId));
+    const releasedIds = new Set(checkins.filter(c => c.student && c.professor && c.professorId === req.user.id).map(c => c.studentId));
+    const workouts = db.workouts.flatMap(w => {
+      const assignedIds = workoutStudentIds(w).filter(id => studentIds.has(id));
+      if (!assignedIds.length) return [];
+      // Shared templates reveal exercises only after a check-in for an assigned student.
+      return [scopedWorkout(w, assignedIds, assignedIds.some(id => releasedIds.has(id)))];
+    });
+    return res.json({ students, workouts, checkins, ratings: db.ratings.filter(r => studentIds.has(r.studentId)) });
   }
-  res.json({ workouts: db.workouts.filter(w => workoutStudentIds(w).includes(req.user.id)), checkins: db.checkins.filter(c => c.date === today && c.studentId === req.user.id), ratings: db.ratings.filter(r => r.studentId === req.user.id), consulting: db.consulting.find(c => c.studentId === req.user.id) || null });
+  const user = db.users.find(u => u.id === req.user.id);
+  res.json({ workouts: db.workouts.filter(w => workoutStudentIds(w).includes(req.user.id)).map(w => scopedWorkout(w, [req.user.id])), checkins: db.checkins.filter(c => c.date === today && c.studentId === req.user.id), ratings: db.ratings.filter(r => r.studentId === req.user.id), consulting: user?.consulting ? db.consulting.find(c => c.studentId === req.user.id) || null : null });
 });
 
 app.post('/api/users', auth, only('admin'), async (req, res) => {
@@ -215,6 +236,12 @@ app.patch('/api/students/:id/professor', auth, only('admin'), async (req, res) =
   if (!student) return res.status(404).json({ error: 'Aluno nÃ£o encontrado.' });
   const professorId = req.body.professorId ? Number(req.body.professorId) : null;
   if (professorId && !db.users.some(item => item.id === professorId && item.role === 'professor')) return res.status(400).json({ error: 'Professor invÃ¡lido.' });
+  if (student.professorId !== professorId) {
+    const today = new Date().toISOString().slice(0, 10);
+    for (const checkin of db.checkins.filter(c => c.studentId === student.id && c.date === today)) {
+      Object.assign(checkin, { professorId, professor: false, startedAt: null });
+    }
+  }
   student.professorId = professorId; await writeDb(db); res.json(safeUser(student));
 });
 
@@ -264,7 +291,7 @@ app.post('/api/checkin', auth, async (req, res) => {
 });
 
 app.post('/api/ratings', auth, only('aluno'), async (req, res) => {
-  const score = Number(req.body.score); if (score < 1 || score > 5) return res.status(400).json({ error: 'A nota deve ser de 1 a 5.' });
+  const score = Number(req.body.score); if (!Number.isInteger(score) || score < 1 || score > 5) return res.status(400).json({ error: 'A nota deve ser um inteiro de 1 a 5.' });
   const db = await readDb(); const item = { id: Date.now(), studentId: req.user.id, score, comment: String(req.body.comment || '').slice(0, 500), createdAt: new Date().toISOString() };
   db.ratings.push(item); await writeDb(db); res.status(201).json(item);
 });

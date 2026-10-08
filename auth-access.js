@@ -6,7 +6,7 @@ const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const bearer = req => (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
 const active = session => new Date(session.expiresAt).getTime() > Date.now();
 
-module.exports = function installAccess(app, { readDb, writeDb, safeUser, auth, only, verifyGoogle, clientId = process.env.GOOGLE_CLIENT_ID ?? googleConfig.clientId }) {
+module.exports = function installAccess(app, { readDb, writeDb, safeUser, auth, only, adminKeyHash, verifyGoogle, clientId = process.env.GOOGLE_CLIENT_ID ?? googleConfig.clientId }) {
   const google = new OAuth2Client();
   const verify = verifyGoogle || (async credential => (await google.verifyIdToken({ idToken: credential, audience: clientId })).getPayload());
 
@@ -18,6 +18,7 @@ module.exports = function installAccess(app, { readDb, writeDb, safeUser, auth, 
       status: pending ? 'pending' : 'approved', createdAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + (pending ? 15 * 60 : 120 * 60) * 1000).toISOString()
     };
+    if (user.role === 'admin') session.adminKeyHash = adminKeyHash;
     db.sessions = (db.sessions || []).filter(active);
     db.sessions.push(session);
     await writeDb(db);
@@ -68,6 +69,7 @@ module.exports = function installAccess(app, { readDb, writeDb, safeUser, auth, 
     if (!session) return res.status(401).json({ error: 'Solicitação expirada. Entre novamente.' });
     const user = db.users.find(item => item.id === session.userId);
     if (!user) return res.status(401).json({ error: 'Conta indisponível.' });
+    if (user.role === 'admin' && (!adminKeyHash || session.adminKeyHash !== adminKeyHash)) return res.status(401).json({ error: 'Entre novamente com a chave atual do ADM.' });
     if (session.status === 'approved') return res.json({ status: 'approved', user: safeUser(user) });
     res.json({ status: session.status || 'expired', expiresAt: session.expiresAt });
   });

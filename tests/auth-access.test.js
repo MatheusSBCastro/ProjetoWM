@@ -29,7 +29,7 @@ test('tentativas repetidas não bloqueiam novos logins válidos', async t => {
     assert.equal((await api('/api/login', { portal: 'admin', keyword: 'errada' })).status, 401);
     assert.equal((await api('/api/login/google', { portal: 'aluno', credential: 'invalid' })).status, 401);
   }
-  assert.equal((await api('/api/login', { portal: 'admin', keyword: 'matheusemiguel' })).status, 200);
+  assert.equal((await api('/api/login', { portal: 'admin', keyword: 'admin-test-key-123456' })).status, 200);
   assert.equal((await api('/api/login', { portal: 'aluno', login: 'aluno', password: 'teste123' })).status, 200);
   assert.equal((await api('/api/login/google', googleLogin('aluno'))).status, 200);
   assert.equal((await api('/api/login', professorLogin)).status, 202);
@@ -81,7 +81,7 @@ test('aluno entra direto e não pode aprovar professores; ADM mantém palavra-ch
   assert.equal(student.status, 200);
   assert.equal((await api('/api/access-requests', undefined, student.data.token)).status, 403);
   assert.equal((await api('/api/access-requests/fake', { decision: 'approved' }, student.data.token)).status, 403);
-  assert.equal((await api('/api/login', { portal: 'admin', keyword: 'matheusemiguel' })).status, 200);
+  assert.equal((await api('/api/login', { portal: 'admin', keyword: 'admin-test-key-123456' })).status, 200);
   assert.equal((await api('/api/login', { portal: 'admin', keyword: 'errada' })).status, 401);
   await api('/api/logout', {}, student.data.token);
   assert.equal((await api('/api/dashboard', undefined, student.data.token)).status, 401);

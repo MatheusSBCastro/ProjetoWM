@@ -8,5 +8,9 @@ data/*.log
 
 .vercel
 .env*
+!.env.example
 .agents/
 skills-lock.json
+playwright-report/
+test-results/
+blob-report/

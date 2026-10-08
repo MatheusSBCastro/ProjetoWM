@@ -34,6 +34,8 @@ function setupMediaDialog(modal) {
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-modal', 'true');
   dialog.setAttribute('aria-labelledby', heading.id);
+  const instructions = dialog.querySelector('.exercise-instructions');
+  if (instructions) instructions.tabIndex = 0;
   modal.returnFocus = document.activeElement;
   modal.previousOverflow = document.body.style.overflow;
   document.getElementById('app').inert = true;

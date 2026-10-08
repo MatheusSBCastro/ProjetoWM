@@ -10,7 +10,8 @@ const wmMotion = (() => {
   const layers = new Set();
   let input = 'pointer';
   let toastExit;
-  const allowed = () => !reduced.matches && input !== 'keyboard';
+  let motionPaused = localStorage.getItem('wm_motion_paused') === 'true';
+  const allowed = () => !reduced.matches && !motionPaused && input !== 'keyboard';
 
   function play(element, frames, options = {}) {
     if (!element || !allowed()) return null;
@@ -75,14 +76,14 @@ const wmMotion = (() => {
     transition(target, [
       { opacity: 0, transform: `translateX(${32 * direction}px) scale(.98)` },
       { opacity: 1, transform: 'translateX(0) scale(1)' },
-    ], { duration: 280 });
-    if (target?.id === 'portalPicker') stagger([...target.querySelectorAll('.portal-grid button')], 35, 180);
+    ], { duration: 480 });
+    if (target?.id === 'portalPicker') stagger([...target.querySelectorAll('.portal-grid button')], 45, 360);
   }
-  function stagger(elements, spacing = 35, duration = 220) {
+  function stagger(elements, spacing = 45, duration = 400) {
     elements.slice(0, 7).forEach((element, index) => transition(element, [
-      { opacity: 0, transform: 'translateY(18px) scale(.985)' },
+      { opacity: 0, transform: 'translateY(24px) scale(.985)' },
       { opacity: 1, transform: 'translateY(0) scale(1)' },
-    ], { duration, delay: Math.min(index * spacing, 105), fill: 'backwards' }));
+    ], { duration, delay: Math.min(index * spacing, 200), fill: 'backwards' }));
   }
   function swapContent(update, changed) {
     stopTransitions();
@@ -98,10 +99,11 @@ const wmMotion = (() => {
     transition(content.querySelector('.hero'), [
       { opacity: 0, transform: 'translateY(14px)' },
       { opacity: 1, transform: 'translateY(0)' },
-    ], { duration: 220 });
+    ], { duration: 480 });
     const entries = [...content.querySelectorAll('.dashboard-stats, .dashboard-columns > section > .card, .dashboard-columns > aside > *, .tree > .card, .grid > .card, .professor-student-card, .link-group, .empty-state, .premium')];
     // Nested lists animate only their outer cards, keeping exercise data steady.
     stagger(entries.filter(node => !entries.some(parent => parent !== node && parent.contains(node))));
+    revealOnScroll(content);
   }
   function moveIndicator(instant = false) {
     const nav = document.getElementById('nav');
@@ -128,7 +130,7 @@ const wmMotion = (() => {
       play(indicator, [
         { transform: `translate(${previous.left - target.left}px, ${previous.top - target.top}px) scale(${previous.width / target.width}, ${previous.height / target.height})` },
         { transform: 'translate(0, 0) scale(1, 1)' },
-      ], { duration: 250, easing: moveEase });
+      ], { duration: 420, easing: ease });
     }
   }
   function workspace() {
@@ -180,14 +182,86 @@ const wmMotion = (() => {
   }
   function landing() {
     if (document.getElementById('login').hidden || !allowed()) return;
-    stagger([...document.querySelectorAll('.story-copy > .eyebrow, .story-copy > h1, .story-copy > p:not(.eyebrow)')], 60, 600);
-    [...document.querySelectorAll('.movement-art span')].forEach((bar, index) => play(bar, [
-      { opacity: 0, transform: 'scaleY(.25) translateY(24px)' },
-      { opacity: getComputedStyle(bar).opacity, transform: 'scaleY(1) translateY(0)' },
-    ], { duration: 700, delay: index * 25, fill: 'backwards' }));
-    stagger([...document.querySelectorAll('.portal-grid button')], 50, 280);
-    play(document.querySelector('#portalPicker > h2'), [{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 450 });
+    play(document.querySelector('.story-copy > .eyebrow'), [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 700 });
+    [...document.querySelectorAll('.story-copy h1 > span, .story-copy h1 > em')].forEach((line, index) => play(line, [
+      { opacity: 0, transform: 'translateY(45px) rotateX(12deg)' },
+      { opacity: 1, transform: 'translateY(0) rotateX(0)' },
+    ], { duration: 1000, delay: 90 + index * 130, fill: 'backwards' }));
+    play(document.querySelector('.story-copy > p:not(.eyebrow)'), [{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 800, delay: 220, fill: 'backwards' });
+    play(document.querySelector('.movement-stage'), [
+      { opacity: 0, transform: 'translateY(50px) scale(.88) rotate(-5deg)' },
+      { opacity: 1, transform: 'translateY(0) scale(1) rotate(0)' },
+    ], { duration: 1400, delay: 120, fill: 'backwards' });
+    stagger([...document.querySelectorAll('.portal-grid button')], 65, 620);
+    play(document.querySelector('#portalPicker > h2'), [{ opacity: 0, transform: 'translateY(25px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 850 });
   }
+  const revealed = new WeakSet();
+  const revealObserver = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      revealObserver.unobserve(entry.target);
+      if (revealed.has(entry.target)) continue;
+      revealed.add(entry.target);
+      play(entry.target, [{ opacity: 0, transform: 'translateY(30px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 650 });
+    }
+  }, { threshold: .12 });
+  function revealOnScroll(content) {
+    revealObserver.disconnect();
+    if (!allowed()) return;
+    content.querySelectorAll('.card, .premium-teaser, .empty-state').forEach(card => {
+      if (card.getBoundingClientRect().top > innerHeight - 24) revealObserver.observe(card);
+    });
+  }
+  const story = document.querySelector('.login-story');
+  const sculpture = document.querySelector('.movement-object');
+  const sculptureImage = sculpture?.querySelector('img');
+  const motionToggle = document.getElementById('motionToggle');
+  let sceneVisible = true, pointerFrame = 0;
+  function pauseScene() {
+    document.body.dataset.motionPaused = String(motionPaused);
+    if (sculptureImage) sculptureImage.style.animationPlayState = document.hidden || !sceneVisible || reduced.matches || motionPaused ? 'paused' : 'running';
+    motionToggle.hidden = reduced.matches;
+    motionToggle.setAttribute('aria-pressed', String(motionPaused));
+    const label = motionPaused ? 'Retomar animação' : 'Pausar animação';
+    motionToggle.setAttribute('aria-label', label);
+    motionToggle.lastElementChild.textContent = label;
+  }
+  motionToggle.addEventListener('click', () => {
+    motionPaused = !motionPaused;
+    localStorage.setItem('wm_motion_paused', String(motionPaused));
+    if (motionPaused) { stopTransitions(); revealObserver.disconnect(); animations.forEach(a => { try { a.finish(); } catch { a.cancel(); } }); }
+    pauseScene();
+  });
+  pauseScene();
+  new IntersectionObserver(entries => { sceneVisible = entries[0].isIntersecting; pauseScene(); }).observe(story);
+  document.addEventListener('visibilitychange', pauseScene);
+  story.addEventListener('pointermove', event => {
+    if (!hover.matches || !allowed() || !sculpture || pointerFrame) return;
+    pointerFrame = requestAnimationFrame(() => {
+      const bounds = story.getBoundingClientRect();
+      const x = (event.clientX - bounds.left) / bounds.width - .5;
+      const y = (event.clientY - bounds.top) / bounds.height - .5;
+      sculpture.style.setProperty('--scene-x', `${x * 22}px`);
+      sculpture.style.setProperty('--scene-y', `${y * 16}px`);
+      sculpture.style.setProperty('--scene-rotate', `${x * 3}deg`);
+      pointerFrame = 0;
+    });
+  }, { passive: true });
+  story.addEventListener('pointerleave', () => {
+    cancelAnimationFrame(pointerFrame); pointerFrame = 0;
+    sculpture?.style.removeProperty('--scene-x');
+    sculpture?.style.removeProperty('--scene-y');
+    sculpture?.style.removeProperty('--scene-rotate');
+  });
+  document.querySelectorAll('.portal-grid button').forEach(card => {
+    card.addEventListener('pointermove', event => {
+      if (!hover.matches || !allowed()) return;
+      const bounds = card.getBoundingClientRect();
+      card.style.setProperty('--card-x', `${(event.clientY - bounds.top - bounds.height / 2) / bounds.height * -5}deg`);
+      card.style.setProperty('--card-y', `${(event.clientX - bounds.left - bounds.width / 2) / bounds.width * 4}deg`);
+    }, { passive: true });
+    card.addEventListener('pointerleave', () => { card.style.removeProperty('--card-x'); card.style.removeProperty('--card-y'); });
+  });
   document.addEventListener('keydown', () => {
     input = 'keyboard';
     document.body.dataset.input = 'keyboard';
@@ -210,7 +284,7 @@ const wmMotion = (() => {
   }, true);
   // Pointer input restores hover motion after using the keyboard.
   document.addEventListener('pointermove', () => { if (hover.matches) { input = 'pointer'; document.body.dataset.input = 'pointer'; } }, { passive: true });
-  reduced.addEventListener('change', () => { if (reduced.matches) { stopTransitions(); animations.forEach(a => a.cancel()); } });
+  reduced.addEventListener('change', () => { pauseScene(); if (reduced.matches) { revealObserver.disconnect(); stopTransitions(); animations.forEach(a => a.cancel()); } });
   const nav = document.getElementById('nav');
   new ResizeObserver(() => moveIndicator(true)).observe(nav);
   new MutationObserver(records => {

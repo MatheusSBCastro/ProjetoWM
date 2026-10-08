@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="fixes.css">
   <link rel="stylesheet" href="design.css">
   <link rel="stylesheet" href="motion.css">
+  <link rel="stylesheet" href="premium.css">
 </head>
 <body>
   <main id="login" class="login-shell">
@@ -25,19 +26,27 @@
         <span>gym moviment<small>FORÇA. FOCO. EVOLUÇÃO.</small></span>
       </a>
       <div class="story-copy">
-        <p class="eyebrow"><span class="gold-dot"></span> SEU ESPAÇO DE EVOLUÇÃO</p>
-        <h1>Seu próximo<br>movimento<br><em>começa aqui.</em></h1>
-        <p>Mais que um treino. Um caminho feito para você, com acompanhamento em cada etapa.</p>
-        <div class="movement-art" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-        <div class="story-caption"><span>CONSISTÊNCIA TRANSFORMA.</span><span>UM DIA DE CADA VEZ.</span></div>
+        <p class="eyebrow"><span class="gold-dot"></span> FEITO PARA IR ALÉM</p>
+        <h1><span>Seu próximo</span><br><em>movimento.</em></h1>
+        <p>Mais força. Mais foco. Mais você.<br>Um acompanhamento à altura da sua evolução.</p>
+        <div class="movement-stage" aria-hidden="true">
+          <div class="stage-halo"></div>
+          <div class="stage-grid"></div>
+          <div class="movement-object"><img src="/assets/movement-sculpture.svg" alt="" width="720" height="520" fetchpriority="high"></div>
+          <div class="stage-orbit stage-orbit-one"></div><div class="stage-orbit stage-orbit-two"></div>
+          <span class="stage-coordinate">01 / MOVIMENTO</span>
+          <span class="stage-detail">FORÇA ENCONTRA PROPÓSITO.</span>
+        </div>
+        <button type="button" id="motionToggle" class="motion-toggle" aria-pressed="false" aria-label="Pausar animação"><span data-icon="clock"></span><span>Pausar animação</span></button>
+        <div class="story-caption"><span><i></i> SEU POTENCIAL. SEM LIMITES.</span><span>GYM MOVIMENT</span></div>
       </div>
       <p class="story-footer">Gym Moviment <span>Feito para ir além.</span></p>
     </aside>
     <div class="access-panel">
       <section id="portalPicker" class="portal-card">
         <p class="eyebrow">BEM-VINDO À GYM MOVIMENT</p>
-        <h2>Vamos começar?</h2>
-        <p class="muted">Escolha seu perfil para acessar seu espaço.</p>
+        <h2>Seu espaço.<br>Seu próximo passo.</h2>
+        <p class="muted">Escolha como você quer entrar.</p>
         <div class="portal-grid">
           <button type="button" onclick="selectPortal('aluno')"><span class="portal-icon" data-icon="activity"></span><span class="portal-copy"><b>Sou aluno</b><span>Seu treino, sua presença, sua evolução.</span></span><span class="portal-arrow" data-icon="arrow"></span></button>
           <button type="button" onclick="selectPortal('professor')"><span class="portal-icon" data-icon="users"></span><span class="portal-copy"><b>Sou professor</b><span>Acompanhe alunos e cada conquista.</span></span><span class="portal-arrow" data-icon="arrow"></span></button>
@@ -73,14 +82,14 @@
   <div id="app" hidden>
     <aside class="app-sidebar">
       <a class="brand-lockup" href="/" aria-label="Gym Moviment, início"><img src="/assets/gym-moviment-logo.png" alt="" width="64" height="38"><span>gym moviment<small>SEU ESPAÇO DE EVOLUÇÃO</small></span></a>
-      <p class="sidebar-label">MEU ESPAÇO</p>
+      <p class="sidebar-label">SEU MOVIMENTO</p>
       <nav id="nav" aria-label="Navegação principal"></nav>
       <div class="sidebar-bottom"><span class="sidebar-monogram" aria-hidden="true">WM</span><p>O próximo passo<br><strong>é seu.</strong></p><span>FORÇA. FOCO. EVOLUÇÃO.</span></div>
     </aside>
     <div class="app-main">
       <header class="app-header">
         <div class="page-location"><span id="workspaceLabel">GYM MOVIMENT</span><strong id="pageLabel">Visão geral</strong></div>
-        <div class="header-account"><span id="userAvatar" class="user-avatar"></span><small id="userLabel"></small><button type="button" class="ghost" onclick="logout()"><span data-icon="logout"></span><span>Sair</span></button></div>
+        <div class="header-account"><span id="userAvatar" class="user-avatar"></span><small id="userLabel"></small><button type="button" class="ghost" aria-label="Sair" onclick="logout()"><span data-icon="logout"></span><span>Sair</span></button></div>
       </header>
       <main id="content" class="content" tabindex="-1"></main>
       <footer class="app-footer">Gym Moviment <span>Um movimento de cada vez.</span></footer>
