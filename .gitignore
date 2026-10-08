@@ -2,6 +2,7 @@ node_modules/
 .visual-audit/
 .env
 data/*.json
+data/*.log
 !data/.gitkeep
 
 

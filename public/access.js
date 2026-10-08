@@ -19,10 +19,12 @@ async function completeLogin(result) {
 }
 
 function showPendingAccess() {
+  wmMotion.swapAccess(() => {
   $('#portalPicker').hidden = true;
   $('#loginCard').hidden = true;
   $('#pendingAccess').hidden = false;
   $('#pendingMessage').textContent = 'Sua entrada foi enviada ao ADM. Aguarde a aprovação para acessar seus alunos e treinos.';
+  });
   clearTimeout(pendingTimer);
   pollAccess();
 }
@@ -70,7 +72,7 @@ function approvalSummary() {
 }
 
 function approvalCards() {
-  return accessRequests.map(item => `<article class="card"><h3>${esc(item.name)}</h3><p>${esc(item.email)}</p><p class="muted">${item.method === 'google' ? 'Conta Google' : 'Login e senha'} · ${esc(new Date(item.createdAt).toLocaleString('pt-BR'))}</p><div class="actions"><button onclick="decideAccess('${esc(item.id)}','approved',this)">Aprovar entrada</button><button class="button-secondary" onclick="decideAccess('${esc(item.id)}','denied',this)">Recusar</button></div></article>`).join('') || '<p class="muted">Nenhuma solicitação pendente.</p>';
+  return accessRequests.map(item => `<article class="card"><h3>${esc(item.name)}</h3><p>${esc(item.email)}</p><p class="muted">${item.method === 'google' ? 'Conta Google' : 'Login e senha'} · ${esc(new Date(item.createdAt).toLocaleString('pt-BR'))}</p><div class="actions"><button onclick="decideAccess('${esc(item.id)}','approved',this)">Aprovar entrada</button><button class="button-secondary" onclick="decideAccess('${esc(item.id)}','denied',this)">Recusar</button></div></article>`).join('') || emptyState('shield', 'Tudo em dia por aqui.', 'Novas solicitações de professores aparecerão aqui para sua aprovação.');
 }
 
 function approvals() {
@@ -83,7 +85,7 @@ async function updateApprovals() {
     if ($('#approvalList')) $('#approvalList').innerHTML = approvalCards();
     if ($('#approvalCount')) $('#approvalCount').textContent = `${accessRequests.length} solicitação(ões) aguardando aprovação.`;
     const tab = document.querySelector('[data-tab="aprovacoes"]');
-    if (tab) tab.textContent = `Aprovações${accessRequests.length ? ` (${accessRequests.length})` : ''}`;
+    if (tab) tab.querySelector('.nav-label').textContent = `Aprovações${accessRequests.length ? ` (${accessRequests.length})` : ''}`;
     if ($('#approvalError')) $('#approvalError').textContent = '';
   } catch (error) {
     if ($('#approvalError')) $('#approvalError').textContent = `Não foi possível atualizar: ${error.message}`;

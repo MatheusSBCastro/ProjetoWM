@@ -6,7 +6,7 @@ const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const bearer = req => (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
 const active = session => new Date(session.expiresAt).getTime() > Date.now();
 
-module.exports = function installAccess(app, { readDb, writeDb, safeUser, auth, only, loginLimiter, verifyGoogle, clientId = process.env.GOOGLE_CLIENT_ID ?? googleConfig.clientId }) {
+module.exports = function installAccess(app, { readDb, writeDb, safeUser, auth, only, verifyGoogle, clientId = process.env.GOOGLE_CLIENT_ID ?? googleConfig.clientId }) {
   const google = new OAuth2Client();
   const verify = verifyGoogle || (async credential => (await google.verifyIdToken({ idToken: credential, audience: clientId })).getPayload());
 
@@ -27,7 +27,7 @@ module.exports = function installAccess(app, { readDb, writeDb, safeUser, auth, 
   }
 
   app.get('/api/auth-config', (req, res) => res.json({ googleClientId: clientId }));
-  app.post('/api/login/google', loginLimiter, async (req, res) => {
+  app.post('/api/login/google', async (req, res) => {
     if (!clientId) return res.status(503).json({ error: 'O acesso com Google ainda não está disponível. Use login e senha.' });
     // The callback uses same-origin JSON fetch, never a cross-site form post.
     if (!req.is('application/json')) return res.status(415).json({ error: 'Formato inválido.' });

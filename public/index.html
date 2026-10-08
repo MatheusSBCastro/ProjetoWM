@@ -1,16 +1,95 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#111111"><title>Gym Moviment</title>
-  <link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="workout.css"><link rel="stylesheet" href="sprite.css"><link rel="stylesheet" href="portals.css"><link rel="stylesheet" href="profiles.css"><link rel="stylesheet" href="admin.css"><link rel="stylesheet" href="fixes.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#f5f5f2">
+  <meta name="description" content="Seu espaço para treinar, acompanhar sua evolução e ir além. Gym Moviment.">
+  <title>Gym Moviment · Seu próximo movimento</title>
+  <link rel="icon" href="/assets/wm-icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="workout.css">
+  <link rel="stylesheet" href="sprite.css">
+  <link rel="stylesheet" href="portals.css">
+  <link rel="stylesheet" href="profiles.css">
+  <link rel="stylesheet" href="admin.css">
+  <link rel="stylesheet" href="fixes.css">
+  <link rel="stylesheet" href="design.css">
+  <link rel="stylesheet" href="motion.css">
 </head>
 <body>
   <main id="login" class="login-shell">
-    <section id="portalPicker" class="portal-card"><img class="brand-logo brand-logo-login" src="/assets/gym-moviment-logo.png" alt="Gym Moviment"><p class="eyebrow">GYM MOVIMENT</p><h1>Escolha seu acesso.</h1><p class="muted">Cada área foi criada para uma experiência diferente.</p><div class="portal-grid"><button onclick="selectPortal('aluno')"><b>Aluno</b><span>Check-in, treino e evolução</span></button><button onclick="selectPortal('professor')"><b>Professor</b><span>Alunos, aulas e avaliações</span></button><button onclick="selectPortal('admin')"><b>ADM</b><span>Gestão completa da equipe</span></button><button class="consulting-entry" onclick="selectPortal('consulting')"><small>PREMIUM</small><b>Consulting Gym Moviment</b><span>Treino e plano alimentar</span></button></div></section>
-    <section id="loginCard" class="login-card" hidden><button class="back-link" onclick="backToPortals()">← Voltar</button><img class="brand-logo brand-logo-login" src="/assets/gym-moviment-logo.png" alt="Gym Moviment"><p id="portalEyebrow" class="eyebrow">ACESSO</p><h1 id="portalTitle">Entrar.</h1><p id="portalDescription" class="muted"></p><form id="loginForm"><label id="loginField">Login<input id="email" type="text" autocomplete="username" required></label><label><span id="passwordLabel">Senha</span><input id="password" type="password" autocomplete="current-password" required></label><button>Entrar</button><p id="loginError" class="error"></p></form><div id="googleAccess" class="google-access" hidden><p class="muted">ou</p><div id="googleButton"></div><p id="googleMessage" class="muted" role="status"></p></div></section>
-    <section id="pendingAccess" class="login-card" hidden><p class="eyebrow">ACESSO DO PROFESSOR</p><h1>Aguardando ADM</h1><p id="pendingMessage" role="status" aria-live="polite"></p><button class="button-secondary" onclick="cancelAccess()">Voltar</button></section>
+    <aside class="login-story" aria-label="Gym Moviment">
+      <a class="brand-lockup" href="/" aria-label="Gym Moviment, início">
+        <img src="/assets/gym-moviment-logo.png" alt="" width="72" height="42">
+        <span>gym moviment<small>FORÇA. FOCO. EVOLUÇÃO.</small></span>
+      </a>
+      <div class="story-copy">
+        <p class="eyebrow"><span class="gold-dot"></span> SEU ESPAÇO DE EVOLUÇÃO</p>
+        <h1>Seu próximo<br>movimento<br><em>começa aqui.</em></h1>
+        <p>Mais que um treino. Um caminho feito para você, com acompanhamento em cada etapa.</p>
+        <div class="movement-art" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="story-caption"><span>CONSISTÊNCIA TRANSFORMA.</span><span>UM DIA DE CADA VEZ.</span></div>
+      </div>
+      <p class="story-footer">Gym Moviment <span>Feito para ir além.</span></p>
+    </aside>
+    <div class="access-panel">
+      <section id="portalPicker" class="portal-card">
+        <p class="eyebrow">BEM-VINDO À GYM MOVIMENT</p>
+        <h2>Vamos começar?</h2>
+        <p class="muted">Escolha seu perfil para acessar seu espaço.</p>
+        <div class="portal-grid">
+          <button type="button" onclick="selectPortal('aluno')"><span class="portal-icon" data-icon="activity"></span><span class="portal-copy"><b>Sou aluno</b><span>Seu treino, sua presença, sua evolução.</span></span><span class="portal-arrow" data-icon="arrow"></span></button>
+          <button type="button" onclick="selectPortal('professor')"><span class="portal-icon" data-icon="users"></span><span class="portal-copy"><b>Sou professor</b><span>Acompanhe alunos e cada conquista.</span></span><span class="portal-arrow" data-icon="arrow"></span></button>
+          <button type="button" onclick="selectPortal('admin')"><span class="portal-icon" data-icon="grid"></span><span class="portal-copy"><b>Administração</b><span>Equipe e planejamento em um só lugar.</span></span><span class="portal-arrow" data-icon="arrow"></span></button>
+          <button type="button" class="consulting-entry" onclick="selectPortal('consulting')"><span class="portal-icon" data-icon="spark"></span><span class="portal-copy"><span class="portal-title"><b>Consulting WM</b><small>EXCLUSIVO</small></span><span>Treino e alimentação feitos para você.</span></span><span class="portal-arrow" data-icon="arrow"></span></button>
+        </div>
+        <p class="access-note"><span data-icon="shield"></span>Seu acompanhamento. Sempre por perto.</p>
+      </section>
+      <section id="loginCard" class="login-card" hidden>
+        <button type="button" class="back-link" onclick="backToPortals()"><span data-icon="back"></span> Trocar perfil</button>
+        <span id="loginPortalIcon" class="login-portal-icon" data-icon="activity"></span>
+        <p id="portalEyebrow" class="eyebrow">ACESSO</p>
+        <h2 id="portalTitle">Entrar.</h2>
+        <p id="portalDescription" class="muted"></p>
+        <form id="loginForm">
+          <label id="loginField">Login<input id="email" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="Seu login ou e-mail" required></label>
+          <label><span id="passwordLabel">Senha</span><input id="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" required></label>
+          <button id="loginSubmit">Entrar no meu espaço <span data-icon="arrow"></span></button>
+          <p id="loginError" class="error" role="alert"></p>
+        </form>
+        <div id="googleAccess" class="google-access" hidden><p class="login-divider">ou continue com</p><div id="googleButton"></div><p id="googleMessage" class="muted" role="status"></p></div>
+      </section>
+      <section id="pendingAccess" class="login-card" hidden>
+        <span class="login-portal-icon" data-icon="clock"></span>
+        <p class="eyebrow">ACESSO DO PROFESSOR</p>
+        <h2>Seu acesso está a caminho.</h2>
+        <p id="pendingMessage" class="muted" role="status" aria-live="polite"></p>
+        <button type="button" class="button-secondary" onclick="cancelAccess()">Voltar aos perfis</button>
+      </section>
+      <footer class="access-footer">GYM MOVIMENT <span>Treine com propósito.</span></footer>
+    </div>
   </main>
-  <div id="app" hidden><header><img class="brand-logo brand-logo-header" src="/assets/gym-moviment-logo.png" alt="Gym Moviment"><div><small id="userLabel"></small></div><button class="ghost" onclick="logout()">Sair</button></header><nav id="nav"></nav><main id="content" class="content"></main></div>
+  <div id="app" hidden>
+    <aside class="app-sidebar">
+      <a class="brand-lockup" href="/" aria-label="Gym Moviment, início"><img src="/assets/gym-moviment-logo.png" alt="" width="64" height="38"><span>gym moviment<small>SEU ESPAÇO DE EVOLUÇÃO</small></span></a>
+      <p class="sidebar-label">MEU ESPAÇO</p>
+      <nav id="nav" aria-label="Navegação principal"></nav>
+      <div class="sidebar-bottom"><span class="sidebar-monogram" aria-hidden="true">WM</span><p>O próximo passo<br><strong>é seu.</strong></p><span>FORÇA. FOCO. EVOLUÇÃO.</span></div>
+    </aside>
+    <div class="app-main">
+      <header class="app-header">
+        <div class="page-location"><span id="workspaceLabel">GYM MOVIMENT</span><strong id="pageLabel">Visão geral</strong></div>
+        <div class="header-account"><span id="userAvatar" class="user-avatar"></span><small id="userLabel"></small><button type="button" class="ghost" onclick="logout()"><span data-icon="logout"></span><span>Sair</span></button></div>
+      </header>
+      <main id="content" class="content" tabindex="-1"></main>
+      <footer class="app-footer">Gym Moviment <span>Um movimento de cada vez.</span></footer>
+    </div>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="design.js"></script>
+  <script src="motion.js"></script>
   <script src="access.js"></script>
   <script src="app.js"></script>
-</body></html>
+</body>
+</html>

@@ -23,6 +23,18 @@ async function withApi(t, options) {
 const professorLogin = { portal: 'professor', login: 'professor', password: 'teste123' };
 const googleLogin = (role, overrides = {}) => ({ portal: role, credential: JSON.stringify({ sub: `google-${role}`, email: `${role === 'professor' ? 'professor' : 'aluno'}@gmail.com`, email_verified: true, ...overrides }) });
 
+test('tentativas repetidas não bloqueiam novos logins válidos', async t => {
+  const { api } = await withApi(t);
+  for (let attempt = 0; attempt < 12; attempt++) {
+    assert.equal((await api('/api/login', { portal: 'admin', keyword: 'errada' })).status, 401);
+    assert.equal((await api('/api/login/google', { portal: 'aluno', credential: 'invalid' })).status, 401);
+  }
+  assert.equal((await api('/api/login', { portal: 'admin', keyword: 'matheusemiguel' })).status, 200);
+  assert.equal((await api('/api/login', { portal: 'aluno', login: 'aluno', password: 'teste123' })).status, 200);
+  assert.equal((await api('/api/login/google', googleLogin('aluno'))).status, 200);
+  assert.equal((await api('/api/login', professorLogin)).status, 202);
+});
+
 test('professor precisa de aprovação em cada login, bloqueando APIs antes da decisão', async t => {
   const { api } = await withApi(t);
   const login = await api('/api/login', professorLogin);

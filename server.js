@@ -2,7 +2,6 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const helmet = require('helmet');
-const { rateLimit } = require('express-rate-limit');
 const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
@@ -21,7 +20,6 @@ app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { poli
 app.use(express.json({ limit: '100kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
-const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'Muitas tentativas. Aguarde 15 minutos e tente novamente.' } });
 
 function bundledExercises() {
   if (!fs.existsSync(EXERCISE_CATALOG_FILE)) return [
@@ -161,9 +159,9 @@ async function auth(req, res, next) {
 }
 function only(...roles) { return (req, res, next) => roles.includes(req.user.role) ? next() : res.status(403).json({ error: 'Acesso nÃ£o autorizado.' }); }
 
-const access = require('./auth-access')(app, { readDb, writeDb, safeUser, auth, only, loginLimiter });
+const access = require('./auth-access')(app, { readDb, writeDb, safeUser, auth, only });
 
-app.post('/api/login', loginLimiter, async (req, res) => {
+app.post('/api/login', async (req, res) => {
   const db = await readDb();
   const portal = String(req.body.portal || '');
   let user;

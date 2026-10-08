@@ -1,0 +1,42 @@
+:root { --ease-in-out: cubic-bezier(.77, 0, .175, 1); --ease-drawer: cubic-bezier(.32, .72, 0, 1); }
+button { position: relative; isolation: isolate; }
+button:not(.exercise-media) { overflow: hidden; }
+button:active:not(:disabled) { transform: scale(.96); transition-duration: 100ms; }
+.wm-ripple { position: absolute; display: block; border-radius: 50%; background: currentColor; pointer-events: none; z-index: 2; }
+.portal-grid .wm-ripple { background: #a58c50; }
+.wm-transition-layer { pointer-events: none !important; }
+#nav { position: relative; top: auto; isolation: isolate; }
+#nav button { position: relative; z-index: 1; }
+#nav[data-motion] button.active { background: transparent; }
+.wm-nav-indicator { position: absolute; z-index: 0; display: block; border-radius: 9px; background: #e9eddf; transform-origin: top left; pointer-events: none; box-shadow: inset 0 1px 0 #ffffffb3, 0 2px 5px #36462906; }
+.portal-grid .portal-icon { transition: transform 250ms var(--ease-out), background-color 200ms ease; }
+.portal-grid .portal-arrow { transition: transform 200ms var(--ease-out); }
+#loginSubmit > span, .student-checkin button > .wm-icon, .quick-actions button > .wm-icon:last-child, .rating-card > button > .wm-icon, .premium .no-print > .wm-icon { transition: transform 200ms var(--ease-out); }
+#loginSubmit::after, .student-checkin button:not(.checkin-secondary)::after, .rating-card > button::after, .premium .no-print::after {
+  content: ""; position: absolute; inset: -50% -20%; z-index: 1; pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, #ffffff26 48%, #ffffff40 50%, #ffffff26 52%, transparent 65%);
+  transform: translateX(-120%); opacity: 0;
+  transition: opacity 200ms ease, transform 250ms var(--ease-in-out);
+}
+/* No continuous shimmer; one sweep only when a pointer enters a primary action. */
+@media (hover: hover) and (pointer: fine) {
+  .portal-grid button:hover { transform: translateY(-3px); box-shadow: 0 10px 24px #2630200d; }
+  .portal-grid button:hover .portal-icon { transform: rotate(-5deg) scale(1.08); }
+  .portal-grid button:hover .portal-arrow { transform: translateX(5px); }
+  #loginSubmit:hover::after, .student-checkin button:not(.checkin-secondary):hover::after, .rating-card > button:hover::after, .premium .no-print:hover::after { transform: translateX(120%); opacity: 1; }
+  #loginSubmit:hover > span, .quick-actions button:hover > .wm-icon:last-child, .rating-card > button:hover > .wm-icon { transform: translateX(4px); }
+  .quick-actions button:hover { background: #e9eddf; }
+  .exercise-media:hover { transform: scale(1.035); }
+  .exercise-media { transition: transform 200ms var(--ease-out); }
+}
+@media (max-width: 760px) {
+  .wm-nav-indicator { border-radius: 9px; }
+  .app-header { position: sticky; top: var(--wm-sidebar-height, 118px); background: #f5f5f2f5; }
+}
+@media (prefers-reduced-motion: reduce) {
+  button:active:not(:disabled), .portal-grid button:hover, .portal-grid button:hover .portal-icon, .portal-grid button:hover .portal-arrow, .exercise-media:hover { transform: none; }
+  #loginSubmit::after, .student-checkin button::after, .rating-card > button::after, .premium .no-print::after, .wm-ripple { display: none; }
+  #loginSubmit:hover > span, .quick-actions button:hover > .wm-icon:last-child, .rating-card > button:hover > .wm-icon { transform: none; }
+}
+body[data-input="keyboard"] button:active:not(:disabled), body[data-input="keyboard"] .portal-grid button:hover { transform: none; }
+body[data-input="keyboard"] button, body[data-input="keyboard"] button *, body[data-input="keyboard"] button::after { transition: none; }
