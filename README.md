@@ -1,4 +1,41 @@
-# Gym Moviment
+# Gym Moviment · Gestão de academia
+
+**Aplicação web com perfis de acesso, treinos e acompanhamento de alunos.**
+
+Node.js · Express · JavaScript · PostgreSQL · Playwright
+
+![Tela de entrada da aplicação](docs/images/overview.png)
+
+[Código](https://github.com/MatheusSBCastro/ProjetoWM) · [Arquitetura e decisões](#arquitetura-e-decisões) · [Executar](#executar)
+
+## O que este projeto demonstra
+
+Um fluxo completo entre interface e API: alunos consultam treinos, professores acompanham alunos vinculados e administradores controlam cadastros e aprovações. As regras de acesso são verificadas no servidor.
+
+- Perfis de aluno, professor e administrador, com aprovação de sessão do professor.
+- Liberação de exercícios por check-in, isolamento por aluno e permissão para a área Consulting.
+- Login convencional e integração opcional com Google.
+- Interface responsiva com preferência por movimento reduzido e controles acessíveis.
+- Testes de API, fluxos de navegador e verificações automáticas de acessibilidade.
+
+## Arquitetura e decisões
+
+```mermaid
+flowchart LR
+    A[Interface HTML / CSS / JavaScript] --> B[Express API]
+    B --> C[Autenticação e autorização]
+    C --> D[JSON local ou PostgreSQL]
+    C --> E[Google Identity opcional]
+    F[Testes Node e Playwright] --> B
+```
+
+O modo local usa arquivo JSON. No PostgreSQL, o estado é armazenado como um documento JSONB; não há modelagem relacional completa. A aplicação é um MVP e essa decisão simplifica a persistência, mas exige revisão de concorrência e de transações para uma evolução de produção.
+
+**Validação nesta revisão:** 23 testes de API e 24 testes Playwright passaram, incluindo computador e celular. Esses testes usam dados isolados; não validam a integração Google real nem o PostgreSQL publicado. O lockfile recebeu as correções disponíveis para `body-parser` e `qs`; a auditoria posterior não apontou vulnerabilidades conhecidas. Isso não substitui uma revisão de segurança da aplicação.
+
+O desenvolvimento foi assistido por IA. O código, os testes e as decisões estão disponíveis para revisão. A captura acima usa uma execução local com dados de teste.
+
+## Guia de desenvolvimento
 
 MVP web responsivo para gestão de alunos, professores, treinos e consultoria premium.
 
